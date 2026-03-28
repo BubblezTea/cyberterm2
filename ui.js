@@ -165,9 +165,25 @@ const Ui = {
 
     panel.querySelectorAll('.gear-unequip-btn').forEach(btn => {
       btn.addEventListener('click', () => {
-        State.equipped[btn.dataset.slot] = null;
-        State.maxHp     = StatSystem.calcMaxHp();
+        const slot = btn.dataset.slot;
+        const oldItem = State.equipped[slot];
+        
+        State.equipped[slot] = null;
+        
+        // Recalculate max HP and energy
+        const oldMaxHp = State.maxHp;
+        State.maxHp = StatSystem.calcMaxHp();
         State.maxEnergy = StatSystem.calcMaxEnergy();
+        
+        // Clamp current HP/energy to new max values
+        if (State.hp > State.maxHp) {
+          State.hp = State.maxHp;
+          Ui.addInstant(`Your max HP decreased to ${State.maxHp}!`, 'system');
+        }
+        if (State.energy > State.maxEnergy) {
+          State.energy = State.maxEnergy;
+        }
+        
         Ui.updateHeader();
         Ui.renderSidebar();
       });
@@ -370,9 +386,23 @@ function showItemPopup(item) {
       unequipBtn.className = 'item-popup-unequip-btn';
       unequipBtn.textContent = 'UNEQUIP';
       unequipBtn.addEventListener('click', () => {
-        State.equipped[equippedSlot] = null;
-        State.maxHp     = StatSystem.calcMaxHp();
+        const slot = equippedSlot;
+        const oldItem = State.equipped[slot];
+        
+        State.equipped[slot] = null;
+        
+        const oldMaxHp = State.maxHp;
+        State.maxHp = StatSystem.calcMaxHp();
         State.maxEnergy = StatSystem.calcMaxEnergy();
+        
+        if (State.hp > State.maxHp) {
+          State.hp = State.maxHp;
+          Ui.addInstant(`Your max HP decreased to ${State.maxHp}!`, 'system');
+        }
+        if (State.energy > State.maxEnergy) {
+          State.energy = State.maxEnergy;
+        }
+        
         Ui.updateHeader();
         Ui.renderSidebar();
         popup.classList.remove('open');
@@ -383,9 +413,23 @@ function showItemPopup(item) {
       equipBtn.className = 'item-popup-equip-btn';
       equipBtn.textContent = 'EQUIP';
       equipBtn.addEventListener('click', () => {
+        const oldItem = State.equipped[item.slot];
+        
         State.equipped[item.slot] = item;
-        State.maxHp     = StatSystem.calcMaxHp();
+        
+        // Recalculate stats
+        const oldMaxHp = State.maxHp;
+        State.maxHp = StatSystem.calcMaxHp();
         State.maxEnergy = StatSystem.calcMaxEnergy();
+        
+        // HP/Energy may increase, but don't exceed new max
+        State.hp = Math.min(State.hp, State.maxHp);
+        State.energy = Math.min(State.energy, State.maxEnergy);
+        
+        if (State.maxHp > oldMaxHp) {
+          Ui.addInstant(`Equipped ${item.name}: Max HP +${State.maxHp - oldMaxHp}`, 'system');
+        }
+        
         Ui.updateHeader();
         Ui.renderSidebar();
         popup.classList.remove('open');
