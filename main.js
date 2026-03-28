@@ -616,12 +616,38 @@ async function handlePlayerInput() {
   __lastStateSnapshot = JSON.parse(JSON.stringify(State));
   __lastLogSnapshot = document.getElementById('narrativeLog').innerHTML;
 
+  // Detect if this is a social action
+  const socialKeywords = ['talk', 'ask', 'persuade', 'convince', 'lie', 'deceive', 'bargain', 'negotiate', 'intimidate', 'threaten', 'flirt', 'seduce', 'chat', 'greet', 'question', 'interrogate'];
+  const isSocialAction = socialKeywords.some(keyword => text.toLowerCase().includes(keyword));
+  
   const preRoll = Math.floor(Math.random() * 20) + 1;
   window.__pendingRoll = preRoll;
-  const rollLabel = preRoll === 1 ? 'CRITICAL FAILURE — catastrophic, worst possible outcome' : preRoll <= 5 ? 'FAILURE — it goes wrong' : preRoll <= 12 ? 'MIXED — partial success with a cost or complication' : preRoll <= 19 ? 'SUCCESS — it works' : 'CRITICAL SUCCESS — exceeds expectations';
+  
+  // Apply CHA modifier for social actions
+  let finalRoll = preRoll;
+  let chaBonus = 0;
+  let rollLabel = '';
+  
+  if (isSocialAction) {
+    chaBonus = Math.floor((State.stats.cha - 5) * 0.5); // -2 to +2 bonus/penalty
+    finalRoll = Math.min(20, Math.max(1, preRoll + chaBonus));
+    
+    if (chaBonus > 0) {
+      rollLabel = ` (CHA+${chaBonus} → ${finalRoll})`;
+    } else if (chaBonus < 0) {
+      rollLabel = ` (CHA${chaBonus} → ${finalRoll})`;
+    }
+  }
+  
+  const outcomeLabel = finalRoll === 1 ? 'CRITICAL FAILURE — catastrophic, worst possible outcome' 
+    : finalRoll <= 5 ? 'FAILURE — it goes wrong' 
+    : finalRoll <= 12 ? 'MIXED — partial success with a cost or complication' 
+    : finalRoll <= 19 ? 'SUCCESS — it works' 
+    : 'CRITICAL SUCCESS — exceeds expectations';
+    
   const msgWithRoll = `${text}
 
-[ROLL: d20=${preRoll} — ${rollLabel}. This result is BINDING. Your narration and outcome MUST reflect this. Do not override it.]`;
+[ROLL: d20=${preRoll}${isSocialAction ? ` + CHA modifier (${chaBonus > 0 ? `+${chaBonus}` : chaBonus})` : ''} = ${finalRoll} — ${outcomeLabel}. This result is BINDING. Your narration and outcome MUST reflect this. Do not override it.]${isSocialAction ? `\n\nPLAYER CHA: ${State.stats.cha}/10. NPCs react according to this stat.` : ''}`;
 
   const resp = await Llm.send(msgWithRoll);
   Engine.applyResponse(resp);
@@ -648,7 +674,21 @@ async function handlePlayerInput() {
     if (tickerEl) {
       document.getElementById('narrativeLog').appendChild(tickerEl);
       document.getElementById('narrativeLog').scrollTop = 999999;
+    } else {
+      // If no ticker was created but we have a pending roll, create a minimal ticker
+      if (window.__pendingRoll) {
+        const roll = window.__pendingRoll;
+        window.__pendingRoll = null;
+        const dc = diceClass(roll);
+        const df = diceFace(roll);
+        const diceOnlyTicker = document.createElement('div');
+        diceOnlyTicker.className = 'event-ticker';
+        diceOnlyTicker.innerHTML = `<span class="dice-chip ${dc}"><span class="dice-face">${df}</span>d20: ${roll}</span>`;
+        document.getElementById('narrativeLog').appendChild(diceOnlyTicker);
+        document.getElementById('narrativeLog').scrollTop = 999999;
+      }
     }
+    
     Ui.updateHeader();
     Ui.renderSidebar();
 
