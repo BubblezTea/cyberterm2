@@ -256,6 +256,7 @@ function buildTicker(resp, prevHp, prevCredits, prevNpcs) {
     });
   }
 
+  // ALWAYS show the dice roll if there is one
   let diceChip = '';
   const pendingRv = window.__pendingRoll;
   window.__pendingRoll = null;
@@ -270,10 +271,13 @@ function buildTicker(resp, prevHp, prevCredits, prevNpcs) {
     diceChip = `<span class="dice-chip ${dc}"><span class="dice-face">${df}</span>d20: ${rv}</span>`;
   }
 
-  if (!chips.length && !diceChip) return null;
-
+  // Create ticker even if only dice roll exists
   const el = document.createElement('div');
   el.className = 'event-ticker';
   el.innerHTML = chips.join('') + diceChip;
+  
+  // If there's nothing to show (no chips AND no dice), return null
+  if (chips.length === 0 && !diceChip) return null;
+  
   return el;
 }
