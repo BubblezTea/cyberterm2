@@ -107,26 +107,58 @@ const Engine = {
     }
 
     if (Array.isArray(resp.npcs)) {
-      // Process each new NPC
-      resp.npcs.forEach(n => {
+      // Filter out NPCs that don't meet quality standards
+      const validNpcs = resp.npcs.filter(n => {
+        // Must have a name
+        if (!n.name || n.name.trim() === '') return false;
+        
+        // Must have a meaningful description (at least 15 characters)
+        if (!n.description || n.description.trim().length < 15) {
+          console.warn(`Rejected NPC "${n.name}" - missing or too short description`);
+          return false;
+        }
+        
+        // Must have a valid relationship
+        const validRels = ['Friendly', 'Neutral', 'Hostile', 'Suspicious', 'Ally', 'Dead'];
+        if (!validRels.includes(n.relationship)) {
+          console.warn(`Rejected NPC "${n.name}" - invalid relationship: ${n.relationship}`);
+          return false;
+        }
+        
+        // Reject generic placeholder names
+        const genericNames = ['Bar Patron', 'Customer', 'Stranger', 'Citizen', 'Guard', 'Thug', 'Civilian', 'Bystander'];
+        if (genericNames.some(gn => n.name.toLowerCase().includes(gn.toLowerCase()))) {
+          console.warn(`Rejected NPC "${n.name}" - generic background character`);
+          return false;
+        }
+        
+        return true;
+      });
+      
+      // Process each valid NPC
+      validNpcs.forEach(n => {
         const ex = State.npcs.find(x => x.name.toLowerCase() === n.name.toLowerCase());
         if (ex) {
           // Replace relationship if different
           if (ex.relationship !== n.relationship) {
             ex.relationship = n.relationship;
+            Ui.addInstant(`[ ${n.name} now views you as ${n.relationship.toLowerCase()} ]`, 'system');
           }
-          // Update description if provided
-          if (n.description) ex.description = n.description;
+          // Update description if provided and better than existing
+          if (n.description && (!ex.description || n.description.length > ex.description.length)) {
+            ex.description = n.description;
+          }
         } else {
           State.npcs.push({ 
             name: n.name, 
             relationship: n.relationship,
-            description: n.description || ''
+            description: n.description
           });
+          Ui.addInstant(`[ MET: ${n.name} (${n.relationship}) ]`, 'system');
         }
       });
       
-      // Remove any duplicate NPC entries (in case of duplicates from previous responses)
+      // Remove any duplicate NPC entries
       State.npcs = State.npcs.filter((npc, index, self) => 
         index === self.findIndex(n => n.name.toLowerCase() === npc.name.toLowerCase())
       );
@@ -223,13 +255,40 @@ const Engine = {
 
 const StatSystem = {
   getEquipBonus(stat) {
-    return Object.values(State.equipped).reduce((sum, item) => {
-      if (!item || !item.statBonus) return sum;
-      return sum + (item.statBonus[stat] || 0);
-    }, 0);
+    let total = 0;
+    Object.values(State.equipped).forEach(item => {
+      if (item && item.statBonus && item.statBonus[stat]) {
+        total += item.statBonus[stat];
+      }
+    });
+    return total;
   },
-  calcMaxHp()     { return 40 + (State.stats.end + this.getEquipBonus('end')) * 8; },
-  calcMaxEnergy() { return 40 + (State.stats.int + this.getEquipBonus('int')) * 5; },
+  
+  calcMaxHp() {
+    // Base HP: 40 + (END * 8)
+    let baseHp = 40 + (State.stats.end * 8);
+    
+    // Add overflow bonuses from END (beyond 10)
+    let overflowBonus = (State.statOverflow.end || 0) * 8;
+    
+    // Add gear bonuses that affect HP
+    let gearBonus = this.getEquipBonus('hp');
+    
+    return baseHp + overflowBonus + gearBonus;
+  },
+  
+  calcMaxEnergy() {
+    // Base energy: 40 + (INT * 5)
+    let baseEnergy = 40 + (State.stats.int * 5);
+    
+    // Add overflow bonuses from INT (beyond 10)
+    let overflowBonus = (State.statOverflow.int || 0) * 5;
+    
+    // Add gear bonuses that affect energy
+    let gearBonus = this.getEquipBonus('energy') + this.getEquipBonus('en');
+    
+    return baseEnergy + overflowBonus + gearBonus;
+  },
 
   gainXp(amount) {
     State.xp += amount;
