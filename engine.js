@@ -98,7 +98,16 @@ const Engine = {
     }
 
     if (typeof resp.hpDelta      === 'number') State.hp      = Math.max(0, Math.min(State.maxHp, State.hp + resp.hpDelta));
-    if (typeof resp.creditsDelta === 'number') State.credits = Math.max(0, State.credits + resp.creditsDelta);
+    if (typeof resp.creditsDelta === 'number') {
+      let newCredits = State.credits + resp.creditsDelta;
+      if (newCredits < 0) {
+        console.warn(`Blocked creditsDelta: would leave ${newCredits} credits`);
+        Ui.addInstant(`[ INSUFFICIENT CREDITS ]`, 'system');
+        resp.creditsDelta = 0; // cancel the transaction
+      } else {
+        State.credits = newCredits;
+      }
+    }
     if (resp.newLocation) State.location = resp.newLocation;
     if (resp.newSkill && resp.newSkill.name) {
       const exists = State.skills.find(s => s.name.toLowerCase() === resp.newSkill.name.toLowerCase());

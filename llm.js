@@ -419,6 +419,8 @@ You MUST respond ONLY with a single valid JSON object. No prose outside the JSON
 - "creditsDelta" is for IMMEDIATE payment only (tips, bribes, selling items, finding money).
 - Never use "creditsDelta" for quest rewards. Quest rewards are displayed in the quest log.
 
+- CRITICAL: Before using a negative "creditsDelta", you MUST verify that the player has enough credits. If they do not, do NOT include the creditsDelta. Instead, narrate that the transaction fails due to insufficient funds, or that they just don't get a deal.
+
 Example quest with reward: {"title":"Job","description":"Retrieve package from warehouse","status":"active","reward":"700 credits"}
 
 {

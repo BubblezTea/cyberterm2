@@ -206,6 +206,8 @@ One terse, visceral sentence. No numbers, no mechanics. Reply only: {"narration"
     document.getElementById('combatOverlay').classList.add('open');
     document.getElementById('combatChatInput').focus();
     Ui.setInputLocked(true);
+
+    this._nextTurn();
   },
   
   _calculateTurnOrder() {
