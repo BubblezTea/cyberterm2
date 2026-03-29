@@ -141,20 +141,23 @@ async function handleStep1() {
 }
 
 async function fetchLocationOptions() {
-  const prompt = `Generate exactly 4 gritty cyberpunk DISTRICT names within a single megacity. Each name should be 1-3 words, evocative, like "Rust Alley", "Neon Heights", "Sub-Level 6", "The Sprawl". Respond only with a valid JSON array of strings. No markdown, no commentary.`;
+  const prompt = `Generate exactly 4 gritty cyberpunk DISTRICT names within a single megacity.
+Each name must be 2-4 words, evocative, and NOT include any of these names: "Ironhaven", "Shadowbrook", "The Pit", "Darkside Towers", "Rust Alley", "Neon Heights", "Sub-Level 6", "The Sprawl".
+Make them completely new and varied. Avoid industrial themes for all of them.
+Respond only with a valid JSON array of strings. No markdown, no commentary.`;
   try {
-    const raw     = await queueRequest(() => callProvider([{ role: 'user', content: prompt }], 300));
-    let cleaned   = raw.replace(/^```json\s*/i, '').replace(/```$/g, '').trim();
-    cleaned       = cleaned.replace(/,\s*([}\]])/g, '$1');
+    const raw = await queueRequest(() => callProvider([{ role: 'user', content: prompt }], 300));
+    let cleaned = raw.replace(/^```json\s*/i, '').replace(/```$/g, '').trim();
+    cleaned = cleaned.replace(/,\s*([}\]])/g, '$1');
     const locations = JSON.parse(cleaned);
     if (Array.isArray(locations) && locations.length === 4) return locations;
     throw new Error('Invalid response');
   } catch (e) {
     console.warn('Location fetch failed, using fallback:', e);
-    return ['Rust Alley', 'Neon Heights', 'Sub-Level 6', 'The Sprawl'];
+    // Fallback with truly unique names
+    return ['Cinder Row', 'The Spire Gardens', 'Neon Bazaar', 'Floodgate District'];
   }
 }
-
 async function showLocationChoices() {
   const grid      = document.getElementById('ccLocationGrid');
   const loading   = document.getElementById('ccLocationLoading');
@@ -173,7 +176,10 @@ async function showLocationChoices() {
 
     for (const loc of locations) {
       try {
-        const descPrompt  = `Describe ${loc} as a district within a cyberpunk megacity in one sentence. Gritty, atmospheric. Only the description, no extra text.`;
+        const descPrompt = `Describe ${loc} as a district within a cyberpunk megacity in one sentence. 
+Focus on one distinctive, unusual feature that sets it apart from typical industrial zones. 
+Be specific—mention architecture, smell, sound, or a unique landmark. 
+Only the description, no extra text.`;
         const raw         = await queueRequest(() => callProvider([{ role: 'user', content: descPrompt }], 100));
         const locationDesc = raw.trim().replace(/^["']|["']$/g, '');
         locationData.push({ name: loc, description: locationDesc });
