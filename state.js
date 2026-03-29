@@ -28,9 +28,17 @@ const State = {
   maxEnergy:      70,
   skills:         [],
   equipped:       { head:null, body:null, hands:null, back:null },
+  keyFacts: [],
 };
 
 const SAVE_PREFIX = 'ct_save_';
+
+function addKeyFact(fact) {
+  if (!State.keyFacts.includes(fact)) {
+    State.keyFacts.unshift(fact);
+    if (State.keyFacts.length > 30) State.keyFacts.pop();
+  }
+}
 
 const SaveLoad = {
   slots() {
@@ -121,6 +129,7 @@ const SaveLoad = {
       State.gameMinutes    = s.gameMinutes;
       State.gameDay        = s.gameDay;
       State.history        = s.history        || [];
+      State.keyFacts       = s.keyFacts       || [];
 
       const log = document.getElementById('narrativeLog');
       log.innerHTML = '';
