@@ -366,6 +366,7 @@ Use "gui" when a visual interface would enhance the scene. Types:
 - chatbox: multi-character text thread. Data needs participants[]{name,side,color}, messages[]{speaker,text,timestamp}, canReply.
   IMPORTANT: For a chatbox, the AI must NEVER generate messages from the user's character (the device owner). The user will provide their own messages through the interface. The AI's role is to generate responses from the other participants (contacts). The message history returned by the AI should include all messages from the conversation, but the AI must NOT add or modify messages from the device owner beyond what the user has sent. If the AI receives a chatbox update request, it should add the new user message and its response, and return the full updated message list. The device owner's name should be the player's character name (State.playerName). The participants list should include the device owner and one or more contacts. The device owner's side is "right", the contact's side is "left".
 - Use "keyFacts": ["fact1", "fact2"] to permanently store important information that the player should remember (like codes, names, secrets). Facts are added to permanent memory.
+- dialogue_tree: Use for branching NPC conversations. The type name must be exactly "dialogue_tree", not "dialogue". Data needs speaker, text, options[]{label, roll}.
 
 Only use gui when it genuinely fits the scene. Never use it for casual narration.
 
@@ -385,6 +386,11 @@ Allowed GUI types:
 - loot: When the player opens a container (chest, corpse, etc.).
 - profile: When the player looks up information about an existing NPC (must be in State.npcs).
 - dialogue_tree: FORBIDDEN. Use narration for all NPC interactions.
+
+- DO NOT EVER:
+  * Shorten gui types
+
+- THESE GUI TYPES, ARE STRICT, YOU MAY ONLY THESE THESE 6. THERE ARE NO OTHERS, AND IT IS CASE SENSITIVE.
 
 If the player asks to practice negotiation with V, describe the scene via narration. Use a "roll" field for social checks if needed, but do not open a GUI.
 
