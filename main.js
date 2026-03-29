@@ -601,6 +601,13 @@ async function startGame(chosenClass) {
     description: "Your old buddy, but you're not close anymore. V runs a small fixer network from a cramped data den in the Glitch Sector. They specialize in information brokerage, not just package delivery."
   });
 
+  State.quests.push({
+    title: "Find who ruined your life.",                // Short quest name
+    description: "Find whoever ruined your life, pursuit them and kill them.",          // Details of what to do
+    status: "Active",               // "active", "complete", or "failed"
+    reward: "Satisfaction"                // Optional, e.g., "500 credits + salvage"
+  });
+
   Ui.showScreen('gameScreen');
   Ui.updateHeader();
   Ui.renderSidebar();
@@ -625,7 +632,12 @@ ${backstoryContext}
 
 1. "traits": array with 1 trait (10% chance of 2). Format: ["TraitName||description"].
 2. "initialStats": object with keys str, agi, int, cha, tec, end. Each stat must be between 1 and 20. Total must be exactly 60 points.
-3. "initialSkills": 3-4 skills unique to the class.
+3. "initialSkills": 3-4 skills unique to the class. **EVERY skill MUST be a combat skill** – each must either:
+   - Deal damage (damage array with min ≥ 1)
+   - Apply a status effect that impacts combat (dot, skip, expose, debuff_agi, buff_shield, buff_hp)
+   - Restore HP or energy with a specific numeric value
+   Use the skill format from the response schema. Example: 
+   { "name": "Data Spike", "description": "Quick hack, deals small damage.", "damage": [6,12], "energyCost": 8, "cooldown": 0, "statScaling": "int", "statusEffect": null }
 4. "addItems": starting items. MUST include at least one class-specific item with "unsellable": true.
 5. "narration": 2-3 sentences setting the scene in ${State.origin} (${State.locationDesc}).`;
 
