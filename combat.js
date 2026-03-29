@@ -1,5 +1,15 @@
 let activeCombat = null;
 
+function checkPlayerDeath() {
+  if (State.hp <= 0 && !isDead) {
+    activeCombat = null;
+    document.getElementById('combatOverlay').classList.remove('open');
+    showDeathScreen('You were killed in combat.');
+    return true;
+  }
+  return false;
+}
+
 const CombatEngine = {
   _narrationBusy: false,
 
@@ -803,6 +813,7 @@ Reply with JSON: {"response":"their spoken words","action":"attack|negotiate|swi
       
       if (target.id === 'player') {
         State.hp = target.hp;
+        if (checkPlayerDeath()) return;
         this.clog(`${combatant.name}'s ${skill.name} — ${dmg} dmg to you (${State.hp}/${State.maxHp} HP)`, 'cl-enemy');
         
         if (State.hp <= 0) {

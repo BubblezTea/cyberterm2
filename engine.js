@@ -103,6 +103,10 @@ const Engine = {
     }
 
     if (typeof resp.hpDelta      === 'number') State.hp      = Math.max(0, Math.min(State.maxHp, State.hp + resp.hpDelta));
+    if (State.hp <= 0) {
+      showDeathScreen(resp.deathReason || 'You succumbed to your injuries.');
+      return; // stop further processing
+    }
     if (typeof resp.creditsDelta === 'number') {
       let newCredits = State.credits + resp.creditsDelta;
       if (newCredits < 0) {

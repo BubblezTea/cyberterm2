@@ -294,6 +294,47 @@ Example:
   { "name": "Thug 2", "level": 2, "hp": 45, "agi": 5, "description": "Another thug, armed with a knife.", "skills": [...] }  
 ]  
 
+STATUS EFFECT & ATOMIC ACTION RULES
+You may create custom status effects using atomic actions. Each effect can have multiple actions, with optional delays.
+Atomic action types: damage, heal, skip_turn, change_team, stat_mod, extra_turn, reflect_damage, spread, immune, transform_skill, wait.
+
+Format for a skill's statusEffect:
+"statusEffect": {
+  "name": "string (e.g., 'Neural Hijack')",
+  "description": "What it does narratively",
+  "duration": number (1-5 turns),
+  "effects": [
+    { "type": "damage", "value": number, "delay": 0, "target": "self|player|enemy|ally" },
+    { "type": "wait", "delay": 1 },
+    { "type": "damage", "value": number, "delay": 0 }
+  ]
+}
+
+Balance constraints (MUST obey):
+- Damage per action: 1-30, total over all actions ≤ 50.
+- Heal per action: 1-25.
+- Stat mod delta: -5 to +5.
+- Delay between actions: 0-3 turns.
+- Change team: duration ≤ 2 turns.
+- Extra turn: only once per effect.
+- Reflect damage: ≤ 50%.
+- Spread: radius 1 only.
+- Immune: max duration 2 turns.
+- Transform skill: only replaces one skill.
+- Never create effects that instantly kill or permanently disable.
+- Never stack more than 3 effects per combatant from a single skill.
+
+Example:
+"statusEffect": {
+  "name": "Delayed Payload",
+  "description": "Inject nanites that deal damage now and again later",
+  "duration": 3,
+  "effects": [
+    { "type": "damage", "value": 12, "delay": 0, "target": "enemy" },
+    { "type": "damage", "value": 18, "delay": 2, "target": "enemy" }
+  ]
+}
+
 COMBAT TRIGGER - STRICT RULES  
 When player uses ANY of these phrases, you MUST output "combat" field:  
 "I attack", "I fight", "I punch", "I shoot", "I stab", "I hit", "I start fighting", "I engage", "I draw my weapon", "I swing", "I kill", "I murder", "I assault"  
