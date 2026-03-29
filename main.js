@@ -451,12 +451,12 @@ async function chooseTragedy(id) {
 
   Write a narrative that begins with a specific date and time (e.g., "On the night of February 14, 2045...").
   Tell the event in 3-4 sentences, past tense, second person ("you").
-  Focus on what happened: actions, what you saw, what was done.
-  Do NOT include reflective language like "still echoes", "haunts me", or "I remember".
+  Focus only on what happened: actions, what you saw, what was done.
+  Do NOT include any phrases like "you remember", "still haunts", "echoes", "constant reminder", or any reflection.
   Do NOT reveal who did it – keep the perpetrator a shadow, a figure, a blur.
   Only the narrative text, nothing else.`;
 
-    const raw = await queueRequest(() => callProvider([{ role:'user', content:prompt }], 250));
+  const raw = await queueRequest(() => callProvider([{ role:'user', content:prompt }], 250));
     storyText = raw.trim().replace(/^["']|["']$/g, '');
   } catch (e) {
     storyText = tragedy.desc;
