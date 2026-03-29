@@ -854,6 +854,8 @@ Reply with JSON: {"response":"their spoken words","action":"attack|negotiate|swi
     const alliesSurvived = c.combatants.filter(cb => cb.team === 'ally' && cb.hp > 0);
     
     if (outcome === 'win') {
+      const defeatedNames = enemiesDefeated.map(e => e.name).join(', ');
+      if (defeatedNames) addKeyFact(`Defeated ${defeatedNames} in combat`);
       const baseXp = enemiesDefeated * 25 + Math.floor(Math.random() * 20);
       Ui.addInstant(`[ COMBAT VICTORY: ${enemiesDefeated} enemies defeated in ${c.round} rounds ]`, 'system');
       
