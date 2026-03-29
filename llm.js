@@ -591,24 +591,37 @@ Example quest with reward: {"title":"Job","description":"Retrieve package from w
   },
 
   async getClasses() {
-    const prompt = `Generate exactly 4 cyberpunk character classes for a noir RPG. Respond ONLY with valid JSON — no markdown, no commentary.
-Format:
-[
+    const prompt = `Generate exactly 4 cyberpunk character classes for a noir RPG. 
+  Each class must be UNIQUE and INVENTIVE. Avoid generic names like "Merc", "Fixer". 
+  Think of specialized, unusual concepts: e.g., "Netrunner", "Data Ghoul", "Synth-Priest", "Rust Prophet", "Glitch Dancer".
+
+  For each class, provide:
+  - "name": a 1-3 word name that evokes a specific role or concept (not just "Hacker" or "Soldier").
+  - "description": a single evocative sentence that hints at their unique style and backstory.
+  - "startHp": between 60 and 100.
+  - "startCredits": between 0 and 200.
+  - "stats": an object with 5 skills: combat, hacking, stealth, social, tech. Each stat must be between 1 and 12, and the total must equal exactly 25.
+
+  The classes should cover a variety of playstyles, but they must NOT be the standard four archetypes. Be creative.
+
+  Respond ONLY with valid JSON. No markdown, no commentary.
+
+  Example (do not use this exact class):
   {
-    "name": "CLASS NAME",
-    "description": "One evocative sentence describing the class specialty and style.",
-    "startHp": number between 60-100,
-    "startCredits": number between 0-200,
-    "stats": { "combat":number,"hacking":number,"stealth":number,"social":number,"tech":number }
+    "name": "Synth-Priest",
+    "description": "A bio-modded mystic who hears the whispers of ancient corporate networks.",
+    "startHp": 75,
+    "startCredits": 120,
+    "stats": { "combat":3, "hacking":8, "stealth":5, "social":6, "tech":3 }
   }
-]
-Rules: stats must add up to exactly 25 total across all 5. Make them distinct: one hacker, one street combat, one social/manipulation, one hybrid. Names 1-2 words max.`;
+
+  Now generate 4 distinct, creative classes.`;
 
     const fallback = [
-      { name:'Netrunner',   description:'Ghost in the wire — hacks systems and rewrites reality through cyberspace.', startHp:70,  startCredits:150, stats:{combat:2,hacking:9,stealth:5,social:4,tech:5} },
-      { name:'Street Merc', description:'Augmented muscle for hire, equal parts chrome and brutality.',               startHp:100, startCredits:50,  stats:{combat:9,hacking:1,stealth:4,social:3,tech:8} },
-      { name:'Fixer',       description:'Knows everyone, owes no one — deals in favors, secrets, and survival.',      startHp:80,  startCredits:200, stats:{combat:3,hacking:4,stealth:5,social:9,tech:4} },
-      { name:'Splice',      description:'Bio-modded anomaly walking the line between human and something worse.',      startHp:85,  startCredits:80,  stats:{combat:5,hacking:4,stealth:7,social:3,tech:6} },
+      { name:'Chrome Surgeon',   description:'A back-alley ripperdoc who learned to fight with scalpels and medical chrome.', startHp:80,  startCredits:120, stats:{combat:5,hacking:4,stealth:6,social:7,tech:3} },
+      { name:'Data Ghoul',       description:'A scavenger who hunts in abandoned server farms, consuming forgotten data.', startHp:70,  startCredits:150, stats:{combat:3,hacking:9,stealth:8,social:2,tech:3} },
+      { name:'Glitch Dancer',    description:'A street performer whose neural implants let them manipulate local systems with rhythm.', startHp:65,  startCredits:100, stats:{combat:4,hacking:7,stealth:5,social:6,tech:3} },
+      { name:'Rust Prophet',     description:'A cult leader who speaks to the machine spirits in derelict factories.', startHp:90,  startCredits:80,  stats:{combat:6,hacking:5,stealth:4,social:5,tech:5} },
     ];
 
     return queueRequest(async () => {
