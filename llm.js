@@ -249,6 +249,13 @@ When the player finally discovers the truth, generate a dramatic reveal descript
    
 4. **WEAPON SKILLS** – When granting a weapon, you MUST also populate "newSkill" with a direct damage combat skill for that weapon.
 
+- When generating a "combat" object for multiple foes, you MUST create a separate entry in the "enemies" array for EACH individual enemy. Each enemy must have a unique name (e.g., "Thug 1", "Thug 2", "Ganger Leader", etc.). Do NOT combine them into one enemy named "Enemy" or "Thugs".
+- Example for two thugs:
+  "enemies": [
+    { "name": "Thug 1", "level": 2, "hp": 45, "agi": 6, "description": "A street thug with a pipe.", "skills": [...] },
+    { "name": "Thug 2", "level": 2, "hp": 45, "agi": 5, "description": "Another thug, armed with a knife.", "skills": [...] }
+  ]
+
 === SOCIAL STAT SYSTEM ===
 The player's CHA (charisma) stat is ${State.stats.cha}. This stat directly affects all social interactions:
 - CHA 1-3: Awkward, forgettable, off-putting. NPCs dismiss, ignore, or exploit them.

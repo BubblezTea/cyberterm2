@@ -374,9 +374,20 @@ One terse, visceral sentence. No numbers, no mechanics. Reply only: {"narration"
     
     // Add target selection for skills that need it
     if (validTargets.length > 1 && canAct) {
-      buttons.push(`<select id="combatTargetSelect" class="combat-target-select">
-        ${validTargets.map(t => `<option value="${t.id}">Target: ${t.name}</option>`).join('')}
-      </select>`);
+      const targetButtonsHtml = validTargets.map(t => `
+        <button class="combat-target-btn" data-target-id="${t.id}">
+          <span class="target-name">${t.name}</span>
+          <span class="target-hp">${Math.max(0, t.hp)}/${t.maxHp} HP</span>
+        </button>
+      `).join('');
+      buttons.push(`
+        <div class="combat-targets-group">
+          <div class="combat-targets-label">TARGET</div>
+          <div class="combat-targets-buttons" id="combatTargetButtons">
+            ${targetButtonsHtml}
+          </div>
+        </div>
+      `);
     }
     
     const consumable = State.inventory.find(i =>
@@ -398,10 +409,33 @@ One terse, visceral sentence. No numbers, no mechanics. Reply only: {"narration"
     
     grid.innerHTML = buttons.join('');
     
+    let currentSelectedTargetId = validTargets[0]?.id;
+
+    // Bind target button clicks
+    const targetButtonsContainer = document.getElementById('combatTargetButtons');
+    if (targetButtonsContainer) {
+      const updateSelectedTarget = (btn) => {
+        document.querySelectorAll('.combat-target-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentSelectedTargetId = btn.dataset.targetId;
+      };
+      targetButtonsContainer.querySelectorAll('.combat-target-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          updateSelectedTarget(btn);
+        });
+        // Set first as active by default
+        if (btn === targetButtonsContainer.querySelector('.combat-target-btn:first-child')) {
+          btn.classList.add('active');
+          currentSelectedTargetId = btn.dataset.targetId;
+        }
+      });
+    }
+
+    // Skill button click handler (modify to use currentSelectedTargetId)
     grid.querySelectorAll('.cb-skill-btn:not(:disabled)').forEach(btn => {
       btn.addEventListener('click', () => {
-        const targetSelect = document.getElementById('combatTargetSelect');
-        const targetId = targetSelect ? targetSelect.value : validTargets[0]?.id;
+        const targetId = currentSelectedTargetId || validTargets[0]?.id;
         this.playerAction(btn.dataset.skill, targetId);
       });
     });

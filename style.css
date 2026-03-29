@@ -1961,6 +1961,60 @@ body.sidebar-drawer-open #mobileSidebarToggle {
   margin: 4px 0;
   width: 100%;
 }
+.combat-targets-group {
+  grid-column: 1 / -1;
+  margin: 8px 0 4px;
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+}
+.combat-targets-label {
+  font-size: 9px;
+  letter-spacing: 2px;
+  color: var(--text-lo);
+  margin-bottom: 6px;
+}
+.combat-targets-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.combat-target-btn {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.1s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 80px;
+}
+.combat-target-btn .target-name {
+  color: var(--green-dim);
+  font-weight: bold;
+}
+.combat-target-btn .target-hp {
+  font-size: 9px;
+  color: var(--text-dim);
+}
+.combat-target-btn:hover {
+  border-color: var(--green);
+  background: var(--green-lo);
+  transform: translateY(-1px);
+}
+.combat-target-btn.active {
+  border-color: var(--green);
+  background: var(--green-md);
+  box-shadow: 0 0 8px var(--green-glow);
+}
+.combat-target-btn.active .target-name {
+  color: var(--green);
+  text-shadow: 0 0 4px var(--green);
+}
 
 /* Responsive */
 @media (max-width: 768px) {

@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="gui_styles.css">
   <script>
     // === SINGLE VERSION CONTROL ===
-    const GAME_VERSION = "1.63";
+    const GAME_VERSION = "1.57";
     // Update title and any version displays
     document.addEventListener('DOMContentLoaded', () => {
       document.title = `CYBERTERM // v${GAME_VERSION}`;
@@ -177,18 +177,8 @@
 <!-- ========== COMBAT OVERLAY ========== -->
 <div id="combatOverlay">
   <div id="combatPanel">
-    <div id="ceEnemy">
-      <div class="ce-header">
-        <span class="ce-name" id="ceEnemyName">ENEMY</span>
-        <span class="ce-level" id="ceEnemyLevel">LVL 1</span>
-      </div>
-      <div class="ce-desc" id="ceEnemyDesc"></div>
-      <div class="ce-hp-row">
-        <div class="ce-hp-bar"><div class="ce-hp-fill" id="ceHpFill" style="width:100%"></div></div>
-        <span class="ce-hp-text" id="ceHpText">100/100</span>
-      </div>
-      <div class="ce-statuses" id="ceStatuses"></div>
-    </div>
+    <div id="ceEnemyContainer" class="ce-combatants-container"></div>
+    <div id="ceAllyContainer" class="ce-combatants-container"></div>
 
     <div id="ceRoundBar">
       ROUND <span class="ce-round-num" id="ceRound">1</span>
