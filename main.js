@@ -1206,6 +1206,29 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  const tabBar = document.querySelector('.tab-bar');
+  const skillsTabBtn = document.createElement('button');
+  skillsTabBtn.className = 'tab-btn';
+  skillsTabBtn.dataset.tab = 'skills';
+  skillsTabBtn.textContent = 'SKILL';
+  tabBar.appendChild(skillsTabBtn);
+
+  const skillsPanel = document.createElement('div');
+  skillsPanel.id = 'tab-skills';
+  skillsPanel.className = 'tab-panel';
+  document.getElementById('sidebar').appendChild(skillsPanel);
+
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tabId = btn.dataset.tab;
+      document.querySelectorAll('.tab-panel').forEach(panel => panel.classList.remove('active'));
+      const targetPanel = document.getElementById(`tab-${tabId}`);
+      if (targetPanel) targetPanel.classList.add('active');
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+  });
+
   // Mobile sidebar toggle
   const mobileSidebarToggle = document.getElementById('mobileSidebarToggle');
   const sidebar             = document.getElementById('sidebar');

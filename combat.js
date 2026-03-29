@@ -873,34 +873,78 @@ One terse, visceral sentence. No numbers, no mechanics. Reply only: {"narration"
     if (!activeCombat || activeCombat.locked) return;
     const c = activeCombat;
     this.clog(`[YOU] ${message}`, 'cl-player');
-    const responders = c.combatants.filter(cb => cb.team !== 'player' && cb.hp > 0);
-    if (!responders.length) return;
-    const responder = responders[Math.floor(Math.random() * responders.length)];
+
+    const candidates = c.combatants.filter(cb => cb.team !== 'player' && cb.hp > 0);
+    if (candidates.length === 0) return;
+
+    // Ask AI to decide who the message is directed to
+    const candidateNames = candidates.map(cb => cb.name).join(', ');
+    const routingPrompt = `Combat chat routing. Player says: "${message}"
+  Available NPCs: ${candidateNames}
+  Which NPC is the player addressing? Reply ONLY with the exact name from the list. If uncertain or addressing everyone, reply with "ALL". If addressing no one in particular, reply with "ANY".`;
+
+    let targetName = null;
+    try {
+      const raw = await queueRequest(() => callProvider([{ role: 'user', content: routingPrompt }], 50));
+      targetName = raw.trim().replace(/[.,!?]/g, '');
+    } catch(e) {
+      console.warn('Routing AI failed, falling back to random', e);
+      targetName = candidates[Math.floor(Math.random() * candidates.length)].name;
+    }
+
+    let responder = null;
+    if (targetName === 'ALL') {
+      // Respond with the first NPC, but log that it's a group address
+      responder = candidates[0];
+      this.clog(`(message addressed to everyone)`, 'cl-system');
+    } else if (targetName === 'ANY') {
+      responder = candidates[Math.floor(Math.random() * candidates.length)];
+    } else {
+      responder = candidates.find(cb => cb.name.toLowerCase() === targetName.toLowerCase());
+      if (!responder) responder = candidates[Math.floor(Math.random() * candidates.length)];
+    }
+
     const prompt = `Combat dialogue. Player says: "${message}" to ${responder.name}.
-Current: Player HP ${State.hp}/${State.maxHp}, ${responder.name} HP ${responder.hp}/${responder.maxHp}, Player CHA ${State.stats.cha}, Round ${c.round}.
-Generate short in-character response from ${responder.name} with JSON: {"response":"words","action":"attack|negotiate|switch|plead|reinforce","attackTarget":"player|ally|enemy","switchToTeam":"ally|enemy"}`;
+  Current situation:
+  - Player HP: ${State.hp}/${State.maxHp}
+  - ${responder.name} HP: ${responder.hp}/${responder.maxHp}
+  - Player CHA: ${State.stats.cha}/10
+  - ${responder.name}'s status: ${responder.hp > responder.maxHp * 0.5 ? 'healthy' : 'wounded'}
+  - Round: ${c.round}
+
+  Generate a short, in‑character response from ${responder.name}. They can:
+  - Attack the player (if hostile)
+  - Negotiate (if neutral)
+  - Plead for mercy (if wounded)
+  - Switch sides (rare, if very wounded or high CHA)
+  - Call reinforcements (if losing)
+
+  Reply with JSON: {"response":"their words","action":"attack|negotiate|switch|plead|reinforce","attackTarget":"player|ally|enemy","switchToTeam":"ally|enemy"}`;
+
     try {
       const raw = await queueRequest(() => callProvider([{ role: 'user', content: prompt }], 300));
       const clean = raw.replace(/^```json\s*/i, '').replace(/```$/g, '').trim();
       const result = JSON.parse(clean);
       this.clog(`[${responder.name}] ${result.response}`, 'cl-enemy');
-      switch(result.action) {
+
+      switch (result.action) {
         case 'attack':
-          const target = result.attackTarget === 'player' ? c.playerObj : c.combatants.find(cb => cb.name.toLowerCase().includes(result.attackTarget));
+          const target = result.attackTarget === 'player' ? c.playerObj :
+                        c.combatants.find(cb => cb.name.toLowerCase().includes(result.attackTarget));
           if (target && target.hp > 0) await this._enemyAttack(responder, target);
           break;
         case 'switch':
           if (result.switchToTeam) {
             responder.team = result.switchToTeam;
-            this.clog(`${responder.name} switches sides! Now fighting for ${result.switchToTeam}.`, 'cl-system');
+            this.clog(`⚔ ${responder.name} switches sides! Now fighting for ${result.switchToTeam}!`, 'cl-system');
             this._calculateTurnOrder();
           }
           break;
         case 'plead':
-          this.clog(`${responder.name} pleads for mercy.`, 'cl-system');
+          this.clog(`⚠ ${responder.name} pleads for mercy.`, 'cl-system');
           break;
         case 'reinforce':
-          this.clog(`${responder.name} calls reinforcements!`, 'cl-system');
+          this.clog(`⚠ ${responder.name} calls reinforcements!`, 'cl-system');
           this._addReinforcement(responder);
           break;
       }
@@ -913,20 +957,6 @@ Generate short in-character response from ${responder.name} with JSON: {"respons
       console.error('Combat chat error:', e);
       this.clog(`${responder.name} ignores you.`, 'cl-enemy');
       this._nextTurn();
-    }
-  },
-
-  async _enemyAttack(attacker, target) {
-    const { skill, dmg, dodged } = this._rollEnemyAction(attacker);
-    if (dodged) {
-      this.clog(`${attacker.name} attacks ${target.name} — DODGED!`, 'cl-miss');
-      return;
-    }
-    if (dmg > 0) {
-      target.hp = Math.max(0, target.hp - dmg);
-      if (target.id === 'player') State.hp = target.hp;
-      this.clog(`${attacker.name} hits ${target.name} for ${dmg} damage!`, 'cl-enemy');
-      if (target.id === 'player' && State.hp <= 0) this.endCombat('death');
     }
   },
 

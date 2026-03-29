@@ -79,6 +79,7 @@ const Ui = {
     this.renderQuests();
     this.renderTrait();
     this.renderStats();
+    this.renderSkills();
   },
 
   renderInventory() {
@@ -293,6 +294,36 @@ const Ui = {
         <div class="trait-name">${t.name}</div>
         <div class="trait-desc">${t.description}</div>
       </div>`).join('');
+  },
+
+  renderSkills() {
+    const panel = document.getElementById('tab-skills');
+    if (!panel) return;
+    if (!State.skills.length) {
+      panel.innerHTML = '<div class="panel-empty">[ NO SKILLS ]</div>';
+      return;
+    }
+    panel.innerHTML = State.skills.map(skill => `
+      <div class="skill-card" data-skill="${skill.name}">
+        <div class="skill-name">${skill.name}</div>
+        <div class="skill-desc">${skill.description || ''}</div>
+        <div class="skill-meta">⚡ ${skill.energyCost} EN | 🔁 CD ${skill.cooldown}</div>
+        <button class="skill-use-btn">USE</button>
+      </div>
+    `).join('');
+
+    panel.querySelectorAll('.skill-use-btn').forEach((btn, idx) => {
+      btn.addEventListener('click', () => {
+        const skill = State.skills[idx];
+        let target = prompt(`Use "${skill.name}" on what? (e.g., "door", "computer", "Ark")`, "surroundings");
+        if (target === null) return;
+        const message = `I use ${skill.name} on ${target}`;
+        // Simulate player input
+        const input = document.getElementById('playerInput');
+        input.value = message;
+        handlePlayerInput(); // triggers AI response
+      });
+    });
   },
 
   renderStats() {

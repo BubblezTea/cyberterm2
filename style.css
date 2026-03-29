@@ -2002,3 +2002,39 @@ body.sidebar-drawer-open #mobileSidebarToggle {
 body, html {
   overflow-x: hidden;
 }
+
+.skill-card {
+  border: 1px solid var(--border);
+  background: var(--bg3);
+  padding: 10px;
+  margin-bottom: 8px;
+}
+.skill-name {
+  font-size: 14px;
+  color: var(--green);
+  font-weight: bold;
+}
+.skill-desc {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin: 4px 0;
+}
+.skill-meta {
+  font-size: 10px;
+  color: var(--text-lo);
+  margin-bottom: 6px;
+}
+.skill-use-btn {
+  background: var(--green-lo);
+  border: 1px solid var(--green);
+  color: var(--green);
+  padding: 4px 12px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 11px;
+  transition: 0.1s;
+}
+.skill-use-btn:hover {
+  background: var(--green-md);
+  box-shadow: 0 0 8px var(--green-glow);
+}
