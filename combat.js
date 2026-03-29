@@ -1,19 +1,163 @@
+// combat.js - CyberTerm Combat Engine with full creative effect system
+
 let activeCombat = null;
 
-function checkPlayerDeath() {
-  if (State.hp <= 0 && !isDead) {
-    activeCombat = null;
-    document.getElementById('combatOverlay').classList.remove('open');
-    showDeathScreen('You were killed in combat.');
+// ------------------------------------------------------------
+//  Effect Execution Engine
+// ------------------------------------------------------------
+const EffectEngine = {
+  execute(combatant, action, sourceName) {
+    const target = this._resolveTarget(combatant, action.target);
+    if (!target) return false;
+
+    switch (action.type) {
+      case 'damage':
+        return this._applyDamage(target, action.value, sourceName);
+      case 'heal':
+        return this._applyHeal(target, action.value, sourceName);
+      case 'skip_turn':
+        return this._applySkipTurn(target, action.duration || 1, sourceName);
+      case 'change_team':
+        return this._applyChangeTeam(target, action.newTeam, sourceName);
+      case 'stat_mod':
+        return this._applyStatMod(target, action.stat, action.delta, action.duration || 1, sourceName);
+      case 'extra_turn':
+        return this._applyExtraTurn(target, sourceName);
+      case 'reflect_damage':
+        return this._applyReflect(target, action.percent, action.duration || 1, sourceName);
+      case 'spread':
+        return this._applySpread(combatant, action.effectName, action.radius || 1, sourceName);
+      case 'immune':
+        return this._applyImmune(target, action.damageType, action.duration || 1, sourceName);
+      case 'transform_skill':
+        return this._applyTransformSkill(target, action.oldSkillName, action.newSkillName, sourceName);
+      case 'wait':
+        return true;
+      default:
+        console.warn('Unknown action type:', action.type);
+        return false;
+    }
+  },
+
+  _resolveTarget(combatant, targetId) {
+    if (!targetId || targetId === 'self') return combatant;
+    if (targetId === 'player') return activeCombat?.playerObj;
+    return activeCombat?.combatants.find(c => c.id === targetId || c.name === targetId);
+  },
+
+  _applyDamage(target, value, sourceName) {
+    const actualDmg = Math.max(1, Math.floor(value));
+    target.hp = Math.max(0, target.hp - actualDmg);
+    if (target.id === 'player') State.hp = target.hp;
+    CombatEngine.clog(`${sourceName || 'Effect'} deals ${actualDmg} damage to ${target.name}.`, 'cl-effect');
+    return true;
+  },
+
+  _applyHeal(target, value, sourceName) {
+    const actualHeal = Math.max(1, Math.floor(value));
+    target.hp = Math.min(target.maxHp, target.hp + actualHeal);
+    if (target.id === 'player') State.hp = target.hp;
+    CombatEngine.clog(`${sourceName || 'Effect'} heals ${target.name} for ${actualHeal} HP.`, 'cl-effect');
+    return true;
+  },
+
+  _applySkipTurn(target, duration, sourceName) {
+    const skipEffect = target.statusEffects.find(e => e.name === 'Stunned' && e.type === 'skip');
+    if (skipEffect) {
+      skipEffect.duration = Math.max(skipEffect.duration, duration);
+    } else {
+      target.statusEffects.push({
+        name: 'Stunned',
+        type: 'skip',
+        duration: duration,
+        description: 'Cannot act for the duration.'
+      });
+    }
+    CombatEngine.clog(`${target.name} is stunned for ${duration} turn(s).`, 'cl-effect');
+    return true;
+  },
+
+  _applyChangeTeam(target, newTeam, sourceName) {
+    const oldTeam = target.team;
+    target.team = newTeam;
+    CombatEngine.clog(`${target.name} switches sides! Now fighting for ${newTeam}.`, 'cl-effect');
+    activeCombat._calculateTurnOrder();
+    return true;
+  },
+
+  _applyStatMod(target, stat, delta, duration, sourceName) {
+    if (!target.tempMods) target.tempMods = {};
+    target.tempMods[stat] = (target.tempMods[stat] || 0) + delta;
+    target.statModDurations = target.statModDurations || {};
+    target.statModDurations[stat] = Math.max(target.statModDurations[stat] || 0, duration);
+    const sign = delta >= 0 ? '+' : '';
+    CombatEngine.clog(`${target.name}: ${stat.toUpperCase()} ${sign}${delta} for ${duration} turn(s).`, 'cl-effect');
+    return true;
+  },
+
+  _applyExtraTurn(target, sourceName) {
+    const currentIdx = activeCombat.turnOrder.findIndex(c => c.id === activeCombat.currentCombatant?.id);
+    if (currentIdx !== -1) {
+      activeCombat.turnOrder.splice(currentIdx + 1, 0, target);
+      CombatEngine.clog(`${target.name} gains an extra turn!`, 'cl-effect');
+    }
+    return true;
+  },
+
+  _applyReflect(target, percent, duration, sourceName) {
+    target.reflectPercent = (target.reflectPercent || 0) + percent;
+    target.reflectDuration = Math.max(target.reflectDuration || 0, duration);
+    CombatEngine.clog(`${target.name} reflects ${percent}% damage for ${duration} turn(s).`, 'cl-effect');
+    return true;
+  },
+
+  _applySpread(source, effectName, radius, sourceName) {
+    const targets = activeCombat.combatants.filter(c => c.team !== source.team && c.id !== source.id);
+    targets.forEach(target => {
+      const sourceEffect = source.statusEffects.find(e => e.name === effectName);
+      if (sourceEffect) {
+        const newEffect = JSON.parse(JSON.stringify(sourceEffect));
+        newEffect.duration = Math.max(1, sourceEffect.duration - 1);
+        target.statusEffects.push(newEffect);
+        CombatEngine.clog(`${effectName} spreads from ${source.name} to ${target.name}!`, 'cl-effect');
+      }
+    });
+    return true;
+  },
+
+  _applyImmune(target, damageType, duration, sourceName) {
+    if (!target.immunities) target.immunities = [];
+    target.immunities.push({ type: damageType, remaining: duration });
+    CombatEngine.clog(`${target.name} is immune to ${damageType} for ${duration} turn(s).`, 'cl-effect');
+    return true;
+  },
+
+  _applyTransformSkill(target, oldSkillName, newSkillName, sourceName) {
+    const skillIdx = target.skills.findIndex(s => s.name === oldSkillName);
+    if (skillIdx !== -1) {
+      const newSkill = {
+        name: newSkillName,
+        description: `Transformed from ${oldSkillName}`,
+        damage: [5, 12],
+        energyCost: 5,
+        cooldown: 0,
+        currentCooldown: 0,
+        statScaling: null,
+        statusEffect: null
+      };
+      target.skills[skillIdx] = newSkill;
+      CombatEngine.clog(`${target.name}'s ${oldSkillName} becomes ${newSkillName}!`, 'cl-effect');
+    }
     return true;
   }
-  return false;
-}
+};
 
+// ------------------------------------------------------------
+//  Combat Engine Main
+// ------------------------------------------------------------
 const CombatEngine = {
   _narrationBusy: false,
 
-  // calls the model for flavor only — never touches State.history
   async _narrate(mechMsg, aiCtx, cls) {
     if (!COMBAT_NARRATION_ENABLED || this._narrationBusy) {
       this.clog(mechMsg, cls);
@@ -28,8 +172,8 @@ Current combatants:
 - ${c.combatants.map(cb => `${cb.name}: ${Math.max(0,cb.hp)}/${cb.maxHp} HP (${cb.team})`).join(', ')}
 Round ${c.round}.
 One terse, visceral sentence. No numbers, no mechanics. Reply only: {"narration":"..."}`;
-      const raw  = await callProvider([{ role:'user', content: prompt }], 100);
-      const hit  = raw.match(/"narration"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+      const raw = await queueRequest(() => callProvider([{ role: 'user', content: prompt }], 100));
+      const hit = raw.match(/"narration"\s*:\s*"((?:[^"\\]|\\.)*)"/);
       this.clog(hit ? hit[1] : mechMsg, cls);
     } catch(e) {
       this.clog(mechMsg, cls);
@@ -38,93 +182,22 @@ One terse, visceral sentence. No numbers, no mechanics. Reply only: {"narration"
     }
   },
 
-  // ── deterministic mechanics ───────────────────────────────────────────────
-
-  _rollPlayerSkill(skill, targetIndex) {
-    const c = activeCombat;
-    const target = c.combatants[targetIndex];
-    if (!target) return { dmg: 0, isCrit: false, statusApplied: false };
-    
-    const base      = skill.damage[0] + Math.floor(Math.random() * (skill.damage[1] - skill.damage[0] + 1));
-    const statMod   = skill.statScaling ? Math.floor(State.stats[skill.statScaling] * 0.4) : 0;
-    const isCrit    = Math.random() * 100 < State.stats.agi * 1.5;
-    const expose    = target.statusEffects.find(s => s.type === 'expose') ? 1.5 : 1;
-    const dmg       = Math.max(1, Math.floor((base + statMod) * (isCrit ? 1.5 : 1) * expose));
-
-    let statusApplied = false;
-    if (skill.statusEffect) {
-      const roll   = Math.floor(Math.random() * 20) + 1;
-      const targetStat = 10 + Math.floor((skill.statScaling ? State.stats[skill.statScaling] : State.stats.cha) * 0.5);
-      if (roll >= targetStat) {
-        const ex = target.statusEffects.find(s => s.name === skill.statusEffect.name);
-        if (ex) ex.duration = skill.statusEffect.duration;
-        else    target.statusEffects.push({ ...skill.statusEffect });
-        statusApplied = true;
-      }
-    }
-    return { dmg, isCrit, statusApplied, targetIndex };
+  clog(text, cls = 'cl-system') {
+    const log = document.getElementById('combatLog');
+    if (!log) return;
+    const el = document.createElement('div');
+    el.className = 'cl-entry ' + cls;
+    el.textContent = text;
+    log.appendChild(el);
+    log.scrollTop = 999999;
+    if (activeCombat) activeCombat.combatLog.push({ text, cls, timestamp: Date.now() });
   },
 
-  _rollEnemyAction(combatant) {
-    const c = activeCombat;
-    let available = combatant.skills.filter(s => (s.currentCooldown || 0) === 0);
-    
-    // If no skills available, add a default punch
-    if (available.length === 0 && combatant.skills.length === 0) {
-      combatant.skills.push({
-        name: 'Punch',
-        damage: [5, 12],
-        energyCost: 5,
-        cooldown: 0,
-        currentCooldown: 0,
-        statusEffect: null
-      });
-      available = combatant.skills;
-    }
-    
-    const skill = available.length ? available[Math.floor(Math.random() * available.length)] : null;
-    if (!skill) return { skill: null, dmg: 0, dodged: false };
-    
-    // Select a random target (player or other NPCs not on same team)
-    const validTargets = c.combatants.filter(cb => cb.team !== combatant.team && cb.hp > 0);
-    if (validTargets.length === 0) return { skill: null, dmg: 0, dodged: false };
-    
-    const target = validTargets[Math.floor(Math.random() * validTargets.length)];
-    
-    // Dodge calculation based on target's AGI
-    const slowDebuff = target.statusEffects.find(s => s.type === 'debuff_agi');
-    const effectiveAgi = (target === c.playerObj ? State.stats.agi : target.agi) - (slowDebuff ? slowDebuff.value : 0);
-    const dodgeChance = Math.max(0, effectiveAgi * 3);
-    const dodged = Math.random() * 100 < dodgeChance;
-    
-    // If dodged, return immediately with no damage
-    if (dodged) {
-      return { skill, dmg: 0, dodged: true, target };
-    }
-    
-    // Only calculate damage if not dodged
-    const rawDmg = (skill.damage?.[0] || 5) + Math.floor(Math.random() * ((skill.damage?.[1] || 12) - (skill.damage?.[0] || 5) + 1));
-    const shield = target.statusEffects.find(s => s.type === 'buff_shield');
-    let finalDmg = rawDmg;
-    if (shield) {
-      const absorbed = Math.min(shield.value, rawDmg);
-      finalDmg -= absorbed;
-      shield.value -= absorbed;
-      if (shield.value <= 0) {
-        const idx = target.statusEffects.indexOf(shield);
-        if (idx !== -1) target.statusEffects.splice(idx, 1);
-      }
-    }
-    return { skill, dmg: Math.max(0, finalDmg), dodged: false, target };
-  },
-
-  // ── ui helpers ────────────────────────────────────────────────────────────
-
+  // ------------------------------------------------------------
+  //  Combat Initialization
+  // ------------------------------------------------------------
   start(combatData) {
-    // Create combatants array
     const combatants = [];
-    
-    // Add player as combatant
     const playerCombatant = {
       id: 'player',
       name: State.playerName || 'You',
@@ -133,18 +206,21 @@ One terse, visceral sentence. No numbers, no mechanics. Reply only: {"narration"
       maxHp: State.maxHp,
       agi: State.stats.agi,
       statusEffects: [],
-      skills: [], // Player skills handled separately
+      pendingActions: [],
+      tempMods: {},
+      statModDurations: {},
+      reflectPercent: 0,
+      reflectDuration: 0,
+      immunities: [],
+      skills: [],
       isPlayer: true
     };
     combatants.push(playerCombatant);
-    
-    // Add enemies from combatData
+
     const enemies = Array.isArray(combatData.enemies) ? combatData.enemies : [combatData.enemy];
     enemies.forEach((enemy, idx) => {
-      // Ensure enemy has at least one skill
       let enemySkills = enemy.skills || [];
       if (enemySkills.length === 0) {
-        // Add a default attack skill
         enemySkills = [{
           name: 'Punch',
           damage: [5, 12],
@@ -153,9 +229,7 @@ One terse, visceral sentence. No numbers, no mechanics. Reply only: {"narration"
           currentCooldown: 0,
           statusEffect: null
         }];
-        console.log(`[COMBAT] Added default skill to ${enemy.name}`);
       }
-      
       combatants.push({
         id: `enemy_${idx}`,
         name: enemy.name,
@@ -166,12 +240,17 @@ One terse, visceral sentence. No numbers, no mechanics. Reply only: {"narration"
         description: enemy.description || '',
         skills: enemySkills.map(s => ({ ...s, currentCooldown: 0 })),
         statusEffects: [],
+        pendingActions: [],
+        tempMods: {},
+        statModDurations: {},
+        reflectPercent: 0,
+        reflectDuration: 0,
+        immunities: [],
         agi: enemy.agi || 5,
         isPlayer: false
       });
     });
-    
-    // Add allies if provided
+
     if (combatData.allies && Array.isArray(combatData.allies)) {
       combatData.allies.forEach((ally, idx) => {
         combatants.push({
@@ -184,12 +263,18 @@ One terse, visceral sentence. No numbers, no mechanics. Reply only: {"narration"
           description: ally.description || '',
           skills: (ally.skills || []).map(s => ({ ...s, currentCooldown: 0 })),
           statusEffects: [],
+          pendingActions: [],
+          tempMods: {},
+          statModDurations: {},
+          reflectPercent: 0,
+          reflectDuration: 0,
+          immunities: [],
           agi: ally.agi || 5,
           isPlayer: false
         });
       });
     }
-    
+
     activeCombat = {
       combatants: combatants,
       playerObj: playerCombatant,
@@ -198,58 +283,42 @@ One terse, visceral sentence. No numbers, no mechanics. Reply only: {"narration"
       locked: false,
       turnOrder: [],
       currentTurnIndex: 0,
+      currentCombatant: null,
       combatLog: [],
       dialogueEnabled: true,
       defeatedEnemies: []
     };
 
-    
-    
-    // Calculate turn order based on AGI
     this._calculateTurnOrder();
-    
-    State.energy = Math.min(State.energy + 20, State.maxEnergy);
+    State.energy = Math.min(State.maxEnergy, State.energy + 20);
     document.getElementById('combatLog').innerHTML = '';
     this.clog(`⚔ Combat begins!`, 'cl-system');
-    this.clog(`Combatants: ${combatants.map(c => `${c.name} (${c.team})`).join(', ')}`, 'cl-system');
     this.refresh();
     document.getElementById('combatOverlay').classList.add('open');
     document.getElementById('combatChatInput').focus();
     Ui.setInputLocked(true);
-
     this._nextTurn();
   },
-  
+
   _calculateTurnOrder() {
     const c = activeCombat;
     const alive = c.combatants.filter(cb => cb.hp > 0);
     c.turnOrder = alive.sort((a, b) => {
-      const aAgi = a.isPlayer ? State.stats.agi : a.agi;
-      const bAgi = b.isPlayer ? State.stats.agi : b.agi;
+      const aAgi = (a.isPlayer ? State.stats.agi : a.agi) + (a.tempMods?.agi || 0);
+      const bAgi = (b.isPlayer ? State.stats.agi : b.agi) + (b.tempMods?.agi || 0);
       return bAgi - aAgi;
     });
     c.currentTurnIndex = 0;
-  },
-
-  clog(text, cls = 'cl-system') {
-    const log = document.getElementById('combatLog');
-    const el  = document.createElement('div');
-    el.className   = 'cl-entry ' + cls;
-    el.textContent = text;
-    log.appendChild(el);
-    log.scrollTop  = 999999;
-    if (activeCombat) activeCombat.combatLog.push({ text, cls, timestamp: Date.now() });
+    c.currentCombatant = c.turnOrder[0];
   },
 
   refresh() {
     if (!activeCombat) return;
     const c = activeCombat;
-    
-    // Update enemy display (show all enemies)
     const enemyContainer = document.getElementById('ceEnemyContainer');
     if (enemyContainer) {
       const enemies = c.combatants.filter(cb => cb.team === 'enemy' && cb.hp > 0);
-      if (enemies.length > 0) {
+      if (enemies.length) {
         enemyContainer.innerHTML = enemies.map(enemy => `
           <div class="ce-enemy-card" data-id="${enemy.id}">
             <div class="ce-header">
@@ -262,119 +331,90 @@ One terse, visceral sentence. No numbers, no mechanics. Reply only: {"narration"
               <span class="ce-hp-text">${Math.max(0, enemy.hp)}/${enemy.maxHp}</span>
             </div>
             <div class="ce-statuses" id="ceStatuses_${enemy.id}"></div>
-          </div>
-        `).join('');
-        
-        // Render statuses for each enemy
+          </div>`).join('');
         enemies.forEach(enemy => {
           const statusEl = document.getElementById(`ceStatuses_${enemy.id}`);
-          if (statusEl) {
-            statusEl.innerHTML = this._renderStatuses(enemy.statusEffects);
-          }
+          if (statusEl) statusEl.innerHTML = this._renderStatuses(enemy.statusEffects);
         });
       } else {
         enemyContainer.innerHTML = '<div class="panel-empty">All enemies defeated!</div>';
       }
     }
-    
-    // Update allies display
+
     const allyContainer = document.getElementById('ceAllyContainer');
     if (allyContainer) {
       const allies = c.combatants.filter(cb => cb.team === 'ally' && cb.hp > 0);
       const allyLabel = document.getElementById('ceAllyLabel');
-      if (allyLabel) allyLabel.style.display = allies.length > 0 ? 'block' : 'none';
-      if (allies.length > 0) {
+      if (allyLabel) allyLabel.style.display = allies.length ? 'block' : 'none';
+      if (allies.length) {
         allyContainer.innerHTML = allies.map(ally => `
           <div class="ce-ally-card" data-id="${ally.id}">
-            <div class="ce-header">
-              <span class="ce-name">${ally.name}</span>
-            </div>
+            <div class="ce-header"><span class="ce-name">${ally.name}</span></div>
             <div class="ce-hp-row">
               <div class="ce-hp-bar"><div class="ce-hp-fill ally-fill" style="width:${Math.max(0, ally.hp/ally.maxHp*100)}%"></div></div>
               <span class="ce-hp-text">${Math.max(0, ally.hp)}/${ally.maxHp}</span>
             </div>
             <div class="ce-statuses" id="ceStatuses_${ally.id}"></div>
-          </div>
-        `).join('');
-        
+          </div>`).join('');
         allies.forEach(ally => {
           const statusEl = document.getElementById(`ceStatuses_${ally.id}`);
-          if (statusEl) {
-            statusEl.innerHTML = this._renderStatuses(ally.statusEffects);
-          }
+          if (statusEl) statusEl.innerHTML = this._renderStatuses(ally.statusEffects);
         });
       }
     }
-    
-    // Update current turn display
-    const currentTurn = c.turnOrder[c.currentTurnIndex];
+
     const turnLabel = document.getElementById('ceTurnLabel');
-    if (turnLabel) {
-      if (currentTurn?.isPlayer) {
+    if (turnLabel && c.currentCombatant) {
+      if (c.currentCombatant.isPlayer) {
         turnLabel.textContent = 'YOUR TURN';
         turnLabel.style.color = 'var(--green)';
-      } else if (currentTurn) {
-        turnLabel.textContent = `${currentTurn.name.toUpperCase()}'S TURN`;
+      } else {
+        turnLabel.textContent = `${c.currentCombatant.name.toUpperCase()}'S TURN`;
         turnLabel.style.color = '#ff6b7a';
       }
     }
-    
     document.getElementById('ceRound').textContent = c.round;
     this._renderPlayerStatuses();
     this.buildSkillGrid();
-    
-    // Update player HP/Energy display
+
     document.getElementById('cpHpFill').style.width = `${State.hp/State.maxHp*100}%`;
     document.getElementById('cpHpText').textContent = `${State.hp}/${State.maxHp}`;
     document.getElementById('cpEnFill').style.width = `${State.energy/State.maxEnergy*100}%`;
     document.getElementById('cpEnText').textContent = `${State.energy}/${State.maxEnergy}`;
     Ui.updateHeader();
   },
-  
+
   _renderStatuses(statuses) {
-    if (!statuses || statuses.length === 0) return '';
+    if (!statuses || !statuses.length) return '';
     return statuses.map(sf => {
-      const cls = { dot:'sc-dot', skip:'sc-skip', expose:'sc-expose', buff_shield:'sc-buff', buff_hp:'sc-buff' }[sf.type] || 'sc-debuff';
-      const desc = sf.description || (
-        sf.type === 'dot' ? `Deals ${sf.value||5} damage each turn` :
-        sf.type === 'skip' ? 'Skips next turn' :
-        sf.type === 'expose' ? 'Takes 50% more damage' :
-        sf.type === 'buff_shield' ? `Absorbs ${sf.value} damage` :
-        sf.type === 'buff_hp' ? `Heals ${sf.value} HP` :
-        sf.type === 'debuff_agi' ? `AGI -${sf.value}` :
-        `${sf.name} (${sf.duration}T)`
-      );
+      let cls = 'sc-debuff';
+      if (sf.type === 'dot') cls = 'sc-dot';
+      else if (sf.type === 'skip') cls = 'sc-skip';
+      else if (sf.type === 'expose') cls = 'sc-expose';
+      else if (sf.type === 'buff_shield') cls = 'sc-buff';
+      const desc = sf.description || `${sf.name} (${sf.duration}T)`;
       return `<span class="status-chip ${cls}" title="${desc}">${sf.name} ${sf.duration}T</span>`;
     }).join('');
   },
-  
+
   _renderPlayerStatuses() {
     const container = document.getElementById('cpStatuses');
     if (!container) return;
     const player = activeCombat.combatants.find(c => c.id === 'player');
-    if (player && player.statusEffects) {
-      container.innerHTML = this._renderStatuses(player.statusEffects);
-    } else {
-      container.innerHTML = '';
-    }
+    container.innerHTML = player ? this._renderStatuses(player.statusEffects) : '';
   },
 
   buildSkillGrid() {
     const grid = document.getElementById('combatSkillGrid');
     if (!grid) return;
     const c = activeCombat;
-    const currentTurn = c.turnOrder[c.currentTurnIndex];
-    
-    // Only show skills if it's player's turn and player is alive
-    const isPlayerTurn = currentTurn?.isPlayer === true;
+    const isPlayerTurn = c.currentCombatant?.isPlayer === true;
     const stunned = c.playerObj?.statusEffects?.some(s => s.type === 'skip');
     const canAct = isPlayerTurn && !c.locked && !stunned && State.hp > 0;
-    
+
     const buttons = [];
-    
-    // Get valid targets for skills
     const validTargets = c.combatants.filter(cb => cb.team !== 'player' && cb.hp > 0);
-    
+
     State.skills.forEach(sk => {
       const cd = c.cooldowns[sk.name] || 0;
       const canUse = cd === 0 && State.energy >= sk.energyCost && canAct;
@@ -385,8 +425,7 @@ One terse, visceral sentence. No numbers, no mechanics. Reply only: {"narration"
         <span class="csb-meta">${sk.energyCost}en · ${dmgStr}dmg</span>
       </button>`);
     });
-    
-    // Add target selection for skills that need it
+
     if (validTargets.length > 1 && canAct) {
       const targetButtonsHtml = validTargets.map(t => `
         <button class="combat-target-btn" data-target-id="${t.id}">
@@ -394,59 +433,39 @@ One terse, visceral sentence. No numbers, no mechanics. Reply only: {"narration"
           <span class="target-hp">${Math.max(0, t.hp)}/${t.maxHp} HP</span>
         </button>
       `).join('');
-      buttons.push(`
-        <div class="combat-targets-group">
-          <div class="combat-targets-label">TARGET</div>
-          <div class="combat-targets-buttons" id="combatTargetButtons">
-            ${targetButtonsHtml}
-          </div>
-        </div>
-      `);
+      buttons.push(`<div class="combat-targets-group">
+        <div class="combat-targets-label">TARGET</div>
+        <div class="combat-targets-buttons" id="combatTargetButtons">${targetButtonsHtml}</div>
+      </div>`);
     }
-    
-    const consumable = State.inventory.find(i =>
-      /stim|heal|med|inject|boost|patch|syringe/i.test(i.name) && i.amount > 0
-    );
-    
+
+    const consumable = State.inventory.find(i => /stim|heal|med|inject|boost|patch|syringe/i.test(i.name) && i.amount > 0);
     buttons.push(`<button class="cb-skill-btn csb-special" data-skill="__wait" ${!canAct ? 'disabled' : ''}>
-      <span class="csb-name">WAIT</span>
-      <span class="csb-meta">+25 energy</span>
+      <span class="csb-name">WAIT</span><span class="csb-meta">+25 energy</span>
     </button>`);
     buttons.push(`<button class="cb-skill-btn csb-special" data-skill="__item" ${(!consumable || !canAct) ? 'disabled' : ''}>
-      <span class="csb-name">USE ITEM</span>
-      <span class="csb-meta">${consumable ? consumable.name : 'none'}</span>
+      <span class="csb-name">USE ITEM</span><span class="csb-meta">${consumable ? consumable.name : 'none'}</span>
     </button>`);
     buttons.push(`<button class="cb-skill-btn csb-flee" data-skill="__flee" ${!canAct ? 'disabled' : ''}>
-      <span class="csb-name">FLEE</span>
-      <span class="csb-meta">AGI check</span>
+      <span class="csb-name">FLEE</span><span class="csb-meta">AGI check</span>
     </button>`);
-    
-    grid.innerHTML = buttons.join('');
-    
-    let currentSelectedTargetId = validTargets[0]?.id;
 
-    // Bind target button clicks
-    const targetButtonsContainer = document.getElementById('combatTargetButtons');
-    if (targetButtonsContainer) {
-      const updateSelectedTarget = (btn) => {
-        document.querySelectorAll('.combat-target-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        currentSelectedTargetId = btn.dataset.targetId;
-      };
-      targetButtonsContainer.querySelectorAll('.combat-target-btn').forEach(btn => {
+    grid.innerHTML = buttons.join('');
+
+    let currentSelectedTargetId = validTargets[0]?.id;
+    const targetContainer = document.getElementById('combatTargetButtons');
+    if (targetContainer) {
+      targetContainer.querySelectorAll('.combat-target-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
           e.stopPropagation();
-          updateSelectedTarget(btn);
-        });
-        // Set first as active by default
-        if (btn === targetButtonsContainer.querySelector('.combat-target-btn:first-child')) {
+          targetContainer.querySelectorAll('.combat-target-btn').forEach(b => b.classList.remove('active'));
           btn.classList.add('active');
           currentSelectedTargetId = btn.dataset.targetId;
-        }
+        });
+        if (btn === targetContainer.querySelector('.combat-target-btn:first-child')) btn.classList.add('active');
       });
     }
 
-    // Skill button click handler (modify to use currentSelectedTargetId)
     grid.querySelectorAll('.cb-skill-btn:not(:disabled)').forEach(btn => {
       btn.addEventListener('click', () => {
         const targetId = currentSelectedTargetId || validTargets[0]?.id;
@@ -454,124 +473,463 @@ One terse, visceral sentence. No numbers, no mechanics. Reply only: {"narration"
       });
     });
   },
-  
-  // Add combat chat handler
-  async sendCombatChat(message) {
+
+  // ------------------------------------------------------------
+  //  Player Action
+  // ------------------------------------------------------------
+  async playerAction(skillName, targetId) {
     if (!activeCombat || activeCombat.locked) return;
-    
     const c = activeCombat;
-    const currentTurn = c.turnOrder[c.currentTurnIndex];
-    
-    // Add chat message to log
-    this.clog(`[YOU] ${message}`, 'cl-player');
-    
-    // Determine who responds based on current turn or random enemy
-    const responders = c.combatants.filter(cb => cb.team !== 'player' && cb.hp > 0);
-    if (responders.length === 0) return;
-    
-    const responder = responders[Math.floor(Math.random() * responders.length)];
-    
-    // AI decides response based on CHA and relationship
-    const prompt = `Combat dialogue. Player says: "${message}" to ${responder.name}.
-Current situation:
-- Player HP: ${State.hp}/${State.maxHp}
-- ${responder.name} HP: ${responder.hp}/${responder.maxHp}
-- Player CHA: ${State.stats.cha}/10
-- ${responder.name}'s current status: ${responder.hp > responder.maxHp * 0.5 ? 'healthy' : 'wounded'}
-- Round: ${c.round}
+    if (!c.currentCombatant?.isPlayer) {
+      this.clog('Not your turn!', 'cl-system');
+      return;
+    }
+    activeCombat.locked = true;
 
-Generate a short, in-character response from ${responder.name}. They can:
-- Attack the player (if hostile or provoked)
-- Try to persuade/negotiate (if neutral or willing)
-- Plead for mercy (if wounded)
-- Switch sides (rare, only if very wounded or if player's CHA is high)
-- Call reinforcements (if losing)
+    const stunned = c.playerObj.statusEffects.find(s => s.type === 'skip');
+    if (stunned) {
+      stunned.duration--;
+      if (stunned.duration <= 0) c.playerObj.statusEffects = c.playerObj.statusEffects.filter(s => s !== stunned);
+      await this._narrate('▶ STUNNED — you cannot act', 'Player is stunned and loses turn.', 'cl-system');
+      this._nextTurn();
+      return;
+    }
 
-Reply with JSON: {"response":"their spoken words","action":"attack|negotiate|switch|plead|reinforce","attackTarget":"player|ally|enemy","switchToTeam":"ally|enemy"}`;
-    
-    try {
-      const raw = await queueRequest(() => callProvider([{ role: 'user', content: prompt }], 300));
-      const clean = raw.replace(/^```json\s*/i, '').replace(/```$/g, '').trim();
-      const result = JSON.parse(clean);
-      
-      this.clog(`[${responder.name}] ${result.response}`, 'cl-enemy');
-      
-      // Handle the action
-      switch(result.action) {
-        case 'attack':
-          const target = result.attackTarget === 'player' ? c.playerObj : 
-                        c.combatants.find(cb => cb.name.toLowerCase().includes(result.attackTarget));
-          if (target && target.hp > 0) {
-            await this._enemyAttack(responder, target);
-          }
-          break;
-        case 'switch':
-          if (result.switchToTeam) {
-            const oldTeam = responder.team;
-            responder.team = result.switchToTeam;
-            this.clog(`⚔ ${responder.name} switches sides! Now fighting for the ${result.switchToTeam} team!`, 'cl-system');
-            // Recalculate turn order
-            this._calculateTurnOrder();
-          }
-          break;
-        case 'plead':
-          this.clog(`⚠ ${responder.name} is pleading for mercy...`, 'cl-system');
-          // Could trigger a choice for player
-          break;
-        case 'reinforce':
-          this.clog(`⚠ ${responder.name} calls for reinforcements!`, 'cl-system');
-          // Add a new enemy next round
-          this._addReinforcement(responder);
-          break;
-        case 'negotiate':
-          // Just dialogue, no action this turn
-          break;
-      }
-      
-      this.refresh();
-      
-      // Check if combat should end
-      const enemiesRemaining = c.combatants.filter(cb => cb.team === 'enemy' && cb.hp > 0);
-      const alliesRemaining = c.combatants.filter(cb => cb.team === 'ally' && cb.hp > 0);
-      
-      if (enemiesRemaining.length === 0) {
-        this.endCombat('win');
-      } else if (State.hp <= 0) {
-        this.endCombat('death');
+    if (skillName === '__wait') {
+      State.energy = Math.min(State.maxEnergy, State.energy + 25);
+      await this._narrate(`▶ WAIT — +25 EN (${State.energy}/${State.maxEnergy})`, 'Player waits and recovers energy.', 'cl-player');
+      this._nextTurn();
+      return;
+    }
+
+    if (skillName === '__flee') {
+      const roll = Math.floor(Math.random() * 20) + 1;
+      const thr = 8 - Math.floor(State.stats.agi / 2);
+      const success = roll >= thr;
+      if (success) {
+        await this._narrate(`▶ FLEE — success (roll ${roll})`, 'Player flees successfully.', 'cl-system');
+        this.endCombat('flee', { roll, threshold: thr, agi: State.stats.agi });
       } else {
-        // Continue to next turn
+        await this._narrate(`▶ FLEE — failed (roll ${roll}, needed ${thr}+)`, 'Player fails to flee.', 'cl-miss');
         this._nextTurn();
       }
-      
-    } catch(e) {
-      console.error('Combat chat error:', e);
-      this.clog(`[${responder.name}] *ignores you*`, 'cl-enemy');
+      return;
+    }
+
+    if (skillName === '__item') {
+      const consumable = State.inventory.find(i => /stim|heal|med|inject|boost|patch|syringe/i.test(i.name) && i.amount > 0);
+      if (consumable) {
+        const healAmt = 20 + State.stats.tec * 2;
+        State.hp = Math.min(State.maxHp, State.hp + healAmt);
+        c.playerObj.hp = State.hp;
+        if (window.Sound) Sound.itemUse();
+        consumable.amount--;
+        if (consumable.amount <= 0) State.inventory.splice(State.inventory.indexOf(consumable), 1);
+        await this._narrate(`▶ ${consumable.name} — +${healAmt} HP (${State.hp}/${State.maxHp})`, `Player uses ${consumable.name} and heals.`, 'cl-player');
+        this._nextTurn();
+      }
+      return;
+    }
+
+    const skill = State.skills.find(s => s.name === skillName);
+    if (!skill) { activeCombat.locked = false; return; }
+    if (State.energy < skill.energyCost) { activeCombat.locked = false; return; }
+
+    State.energy -= skill.energyCost;
+    c.cooldowns[skill.name] = skill.cooldown || 0;
+
+    const target = c.combatants.find(cb => cb.id === targetId);
+    if (!target || target.hp <= 0) { activeCombat.locked = false; return; }
+
+    let dmg = 0;
+    let isCrit = false;
+    if (skill.damage) {
+      const base = skill.damage[0] + Math.floor(Math.random() * (skill.damage[1] - skill.damage[0] + 1));
+      const statMod = skill.statScaling ? Math.floor(State.stats[skill.statScaling] * 0.4) : 0;
+      isCrit = Math.random() * 100 < State.stats.agi * 1.5;
+      const expose = target.statusEffects.find(s => s.type === 'expose') ? 1.5 : 1;
+      dmg = Math.max(1, Math.floor((base + statMod) * (isCrit ? 1.5 : 1) * expose));
+    }
+
+    let finalDmg = dmg;
+    let reflected = false;
+    if (target.reflectPercent > 0 && dmg > 0) {
+      const reflectDmg = Math.floor(dmg * target.reflectPercent / 100);
+      if (reflectDmg > 0) {
+        EffectEngine.execute(c.playerObj, { type: 'damage', value: reflectDmg, target: 'self' }, `${target.name}'s reflection`);
+        reflected = true;
+      }
+    }
+
+    target.hp = Math.max(0, target.hp - finalDmg);
+    if (target.id === 'player') State.hp = target.hp;
+
+    let mechMsg = `▶ ${skill.name} on ${target.name} — ${finalDmg} dmg${isCrit ? ' [CRIT]' : ''}`;
+    if (reflected) mechMsg += ` (reflected ${Math.floor(dmg * target.reflectPercent / 100)})`;
+    await this._narrate(mechMsg, `Player uses ${skill.name} on ${target.name} dealing ${finalDmg} damage.`, isCrit ? 'cl-crit' : 'cl-player');
+
+    if (skill.statusEffect && skill.statusEffect.effects) {
+      for (const action of skill.statusEffect.effects) {
+        EffectEngine.execute(target, action, skill.name);
+      }
+      if (skill.statusEffect.duration > 0) {
+        target.statusEffects.push({
+          name: skill.statusEffect.name,
+          description: skill.statusEffect.description,
+          duration: skill.statusEffect.duration,
+          effects: skill.statusEffect.effects,
+          type: 'custom'
+        });
+      }
+    }
+
+    this.refresh();
+    if (target.hp <= 0) {
+      this.clog(`${target.name} has been defeated!`, 'cl-system');
+      activeCombat.defeatedEnemies.push({ name: target.name, id: target.id });
+      const idx = c.combatants.findIndex(cb => cb.id === target.id);
+      if (idx !== -1) c.combatants.splice(idx, 1);
+    }
+
+    const enemiesRemaining = c.combatants.filter(cb => cb.team === 'enemy' && cb.hp > 0);
+    if (enemiesRemaining.length === 0) {
+      this.endCombat('win');
+      return;
+    }
+    this._nextTurn();
+  },
+
+  // ------------------------------------------------------------
+  //  Turn Management
+  // ------------------------------------------------------------
+  async _nextTurn() {
+    if (!activeCombat) return;
+    const c = activeCombat;
+    c.currentTurnIndex++;
+    if (c.currentTurnIndex >= c.turnOrder.length) {
+      c.currentTurnIndex = 0;
+      c.round++;
+      this._processEndOfRound();
+      this._calculateTurnOrder();
+    }
+    c.currentCombatant = c.turnOrder[c.currentTurnIndex];
+    this.refresh();
+
+    if (c.currentCombatant?.isPlayer) {
+      activeCombat.locked = false;
+      this.refresh();
+    } else if (c.currentCombatant && c.currentCombatant.hp > 0) {
+      setTimeout(() => this._processNonPlayerTurn(c.currentCombatant), 500);
+    } else {
       this._nextTurn();
     }
   },
-  
-  async _enemyAttack(attacker, target) {
-    const { skill, dmg, dodged } = this._rollEnemyAction(attacker);
-    
-    if (dodged) {
-      this.clog(`⚔ ${attacker.name} attacks ${target.name} — DODGED!`, 'cl-miss');
+
+  async _processNonPlayerTurn(combatant) {
+    if (!activeCombat) return;
+    const c = activeCombat;
+
+    await this._processPendingActions(combatant);
+    if (combatant.hp <= 0) {
+      this.clog(`${combatant.name} has been defeated!`, 'cl-system');
+      const idx = c.combatants.findIndex(cb => cb.id === combatant.id);
+      if (idx !== -1) c.combatants.splice(idx, 1);
+      this._nextTurn();
       return;
     }
-    
-    if (dmg > 0) {
-      target.hp = Math.max(0, target.hp - dmg);
-      this.clog(`⚔ ${attacker.name} hits ${target.name} for ${dmg} damage!`, 'cl-enemy');
-      
+
+    const stunIdx = combatant.statusEffects.findIndex(s => s.type === 'skip');
+    if (stunIdx !== -1) {
+      combatant.statusEffects[stunIdx].duration--;
+      if (combatant.statusEffects[stunIdx].duration <= 0) combatant.statusEffects.splice(stunIdx, 1);
+      this.clog(`${combatant.name} is stunned and cannot act!`, 'cl-status');
+      this._nextTurn();
+      return;
+    }
+
+    const { skill, dmg, dodged, target } = this._rollEnemyAction(combatant);
+    if (!skill) {
+      this.clog(`${combatant.name} holds their position.`, 'cl-system');
+      this._nextTurn();
+      return;
+    }
+
+    if (dodged) {
+      this.clog(`${combatant.name}'s ${skill.name} — DODGED!`, 'cl-miss');
+      this._nextTurn();
+      return;
+    }
+
+    if (dmg > 0 && target) {
+      let finalDmg = dmg;
+      if (target.reflectPercent > 0) {
+        const reflectDmg = Math.floor(dmg * target.reflectPercent / 100);
+        if (reflectDmg > 0) {
+          EffectEngine.execute(combatant, { type: 'damage', value: reflectDmg, target: 'self' }, `${target.name}'s reflection`);
+        }
+      }
+      target.hp = Math.max(0, target.hp - finalDmg);
+      if (target.id === 'player') State.hp = target.hp;
+      if (window.Sound) Sound.combatHit(false);
+
       if (target.id === 'player') {
-        State.hp = target.hp;
+        this.clog(`${combatant.name}'s ${skill.name} — ${finalDmg} dmg to you (${State.hp}/${State.maxHp} HP)`, 'cl-enemy');
         if (State.hp <= 0) {
           this.endCombat('death');
           return;
         }
+      } else {
+        this.clog(`${combatant.name}'s ${skill.name} — ${finalDmg} dmg to ${target.name} (${target.hp}/${target.maxHp} HP)`, 'cl-enemy');
+      }
+
+      if (skill.statusEffect && skill.statusEffect.effects) {
+        for (const action of skill.statusEffect.effects) {
+          EffectEngine.execute(target, action, skill.name);
+        }
+        if (skill.statusEffect.duration > 0) {
+          target.statusEffects.push({
+            name: skill.statusEffect.name,
+            description: skill.statusEffect.description,
+            duration: skill.statusEffect.duration,
+            effects: skill.statusEffect.effects,
+            type: 'custom'
+          });
+        }
+      }
+
+      if (target.hp <= 0 && target.team === 'enemy') {
+        this.clog(`${target.name} has been defeated!`, 'cl-system');
+        activeCombat.defeatedEnemies.push({ name: target.name, id: target.id });
+        const idx = c.combatants.findIndex(cb => cb.id === target.id);
+        if (idx !== -1) c.combatants.splice(idx, 1);
+      }
+    }
+
+    this.refresh();
+    const enemiesRemaining = c.combatants.filter(cb => cb.team === 'enemy' && cb.hp > 0);
+    if (enemiesRemaining.length === 0) {
+      this.endCombat('win');
+      return;
+    }
+    if (State.hp <= 0) {
+      this.endCombat('death');
+      return;
+    }
+    this._nextTurn();
+  },
+
+  _rollEnemyAction(combatant) {
+    let available = combatant.skills.filter(s => (s.currentCooldown || 0) === 0);
+    if (available.length === 0 && combatant.skills.length === 0) {
+      combatant.skills.push({ name: 'Punch', damage: [5,12], energyCost:5, cooldown:0, currentCooldown:0, statusEffect:null });
+      available = combatant.skills;
+    }
+    const skill = available.length ? available[Math.floor(Math.random() * available.length)] : null;
+    if (!skill) return { skill: null, dmg: 0, dodged: false, target: null };
+
+    const validTargets = activeCombat.combatants.filter(cb => cb.team !== combatant.team && cb.hp > 0);
+    if (validTargets.length === 0) return { skill: null, dmg: 0, dodged: false, target: null };
+    const target = validTargets[Math.floor(Math.random() * validTargets.length)];
+
+    const slowDebuff = target.statusEffects.find(s => s.type === 'debuff_agi');
+    const effectiveAgi = (target.isPlayer ? State.stats.agi : target.agi) - (slowDebuff ? slowDebuff.value : 0);
+    const dodgeChance = Math.max(0, effectiveAgi * 3);
+    const dodged = Math.random() * 100 < dodgeChance;
+    if (dodged) return { skill, dmg: 0, dodged: true, target };
+
+    const rawDmg = (skill.damage?.[0] || 5) + Math.floor(Math.random() * ((skill.damage?.[1] || 12) - (skill.damage?.[0] || 5) + 1));
+    const shield = target.statusEffects.find(s => s.type === 'buff_shield');
+    let finalDmg = rawDmg;
+    if (shield) {
+      const absorbed = Math.min(shield.value, rawDmg);
+      finalDmg -= absorbed;
+      shield.value -= absorbed;
+      if (shield.value <= 0) target.statusEffects = target.statusEffects.filter(s => s !== shield);
+    }
+    return { skill, dmg: Math.max(0, finalDmg), dodged: false, target };
+  },
+
+  async _processPendingActions(combatant) {
+    if (!combatant.pendingActions || !combatant.pendingActions.length) return;
+    for (let i = 0; i < combatant.pendingActions.length; i++) {
+      const action = combatant.pendingActions[i];
+      action.remainingDelay--;
+      if (action.remainingDelay <= 0) {
+        EffectEngine.execute(combatant, action, 'Delayed effect');
+        combatant.pendingActions.splice(i, 1);
+        i--;
       }
     }
   },
-  
+
+  _processEndOfRound() {
+    const c = activeCombat;
+    for (const combatant of c.combatants) {
+      for (let i = 0; i < combatant.statusEffects.length; i++) {
+        const sf = combatant.statusEffects[i];
+        if (sf.type === 'dot') {
+          const dmg = sf.value || 5;
+          combatant.hp = Math.max(0, combatant.hp - dmg);
+          if (combatant.id === 'player') State.hp = combatant.hp;
+          this.clog(`${sf.name}: ${combatant.name} -${dmg} HP`, 'cl-status');
+        } else if (sf.type === 'buff_hp' && combatant.id === 'player') {
+          State.hp = Math.min(State.maxHp, State.hp + sf.value);
+          combatant.hp = State.hp;
+          this.clog(`${sf.name}: +${sf.value} HP`, 'cl-status');
+        }
+        sf.duration--;
+        if (sf.duration <= 0) {
+          this.clog(`${sf.name} fades from ${combatant.name}.`, 'cl-system');
+          combatant.statusEffects.splice(i, 1);
+          i--;
+        }
+      }
+
+      if (combatant.statModDurations) {
+        for (const [stat, dur] of Object.entries(combatant.statModDurations)) {
+          if (dur <= 1) {
+            delete combatant.statModDurations[stat];
+            combatant.tempMods[stat] = 0;
+          } else {
+            combatant.statModDurations[stat] = dur - 1;
+          }
+        }
+      }
+
+      if (combatant.reflectDuration > 0) {
+        combatant.reflectDuration--;
+        if (combatant.reflectDuration <= 0) combatant.reflectPercent = 0;
+      }
+
+      if (combatant.immunities) {
+        combatant.immunities = combatant.immunities.filter(imm => {
+          imm.remaining--;
+          return imm.remaining > 0;
+        });
+      }
+    }
+
+    Object.keys(c.cooldowns).forEach(key => {
+      if (c.cooldowns[key] > 0) c.cooldowns[key]--;
+    });
+    c.combatants.forEach(cb => {
+      cb.skills.forEach(sk => {
+        if (sk.currentCooldown > 0) sk.currentCooldown--;
+      });
+    });
+
+    State.energy = Math.min(State.maxEnergy, State.energy + 5 + Math.floor(State.stats.int / 2));
+  },
+
+  // ------------------------------------------------------------
+  //  End Combat
+  // ------------------------------------------------------------
+  endCombat(outcome, fleeResult) {
+    const c = activeCombat;
+    if (!c) return;
+    document.getElementById('combatOverlay').classList.remove('open');
+    const defeatedCount = c.defeatedEnemies.length;
+    if (outcome === 'win') {
+      const baseXp = defeatedCount * 25 + Math.floor(Math.random() * 20);
+      Ui.addInstant(`[ COMBAT VICTORY: ${defeatedCount} enemies defeated in ${c.round} rounds ]`, 'system');
+      c.defeatedEnemies.forEach(enemy => {
+        const deadNpc = State.npcs.find(n => n.name.toLowerCase() === enemy.name.toLowerCase());
+        if (deadNpc) deadNpc.relationship = 'Dead';
+        else State.npcs.push({ name: enemy.name, relationship: 'Dead', description: `Defeated in combat on Day ${State.gameDay}.` });
+      });
+      Ui.renderSidebar();
+      Llm.send(`[COMBAT WON] Defeated ${defeatedCount} enemies in ${c.round} rounds. Player HP: ${State.hp}/${State.maxHp}. Narrate aftermath and grant ${baseXp} XP.`)
+        .then(resp => {
+          Engine.applyResponse(resp);
+          if (resp.narration) Ui.enqueue(resp.narration, 'narrator');
+          const tickerEl = buildTicker(resp, State.hp, State.credits, State.npcs);
+          if (tickerEl) document.getElementById('narrativeLog').appendChild(tickerEl);
+          StatSystem.gainXp(baseXp);
+          const wq = () => { if (Ui.isTyping||Ui.typeQueue.length) setTimeout(wq,200); else { Ui.setInputLocked(false); Ui.updateHeader(); Ui.renderSidebar(); }};
+          wq();
+        });
+    } else if (outcome === 'death') {
+      showDeathScreen('You were killed in combat.');
+    } else {
+      Ui.addInstant(`[ You fled from combat ]`, 'system');
+      let fleeContext = fleeResult ? `\nFlee roll: ${fleeResult.roll}/${fleeResult.threshold} needed. AGI: ${fleeResult.agi}.` : '';
+      Llm.send(`[COMBAT FLED] Player fled after ${c.round} rounds.${fleeContext} Narrate the escape.`)
+        .then(resp => {
+          Engine.applyResponse(resp);
+          if (resp.narration) Ui.enqueue(resp.narration, 'narrator');
+          const tickerEl = buildTicker(resp, State.hp, State.credits, State.npcs);
+          if (tickerEl) document.getElementById('narrativeLog').appendChild(tickerEl);
+          const wq = () => { if (Ui.isTyping||Ui.typeQueue.length) setTimeout(wq,200); else { Ui.setInputLocked(false); Ui.updateHeader(); Ui.renderSidebar(); }};
+          wq();
+        });
+    }
+    activeCombat = null;
+  },
+
+  // ------------------------------------------------------------
+  //  Combat Chat
+  // ------------------------------------------------------------
+  async sendCombatChat(message) {
+    if (!activeCombat || activeCombat.locked) return;
+    const c = activeCombat;
+    this.clog(`[YOU] ${message}`, 'cl-player');
+    const responders = c.combatants.filter(cb => cb.team !== 'player' && cb.hp > 0);
+    if (!responders.length) return;
+    const responder = responders[Math.floor(Math.random() * responders.length)];
+    const prompt = `Combat dialogue. Player says: "${message}" to ${responder.name}.
+Current: Player HP ${State.hp}/${State.maxHp}, ${responder.name} HP ${responder.hp}/${responder.maxHp}, Player CHA ${State.stats.cha}, Round ${c.round}.
+Generate short in-character response from ${responder.name} with JSON: {"response":"words","action":"attack|negotiate|switch|plead|reinforce","attackTarget":"player|ally|enemy","switchToTeam":"ally|enemy"}`;
+    try {
+      const raw = await queueRequest(() => callProvider([{ role: 'user', content: prompt }], 300));
+      const clean = raw.replace(/^```json\s*/i, '').replace(/```$/g, '').trim();
+      const result = JSON.parse(clean);
+      this.clog(`[${responder.name}] ${result.response}`, 'cl-enemy');
+      switch(result.action) {
+        case 'attack':
+          const target = result.attackTarget === 'player' ? c.playerObj : c.combatants.find(cb => cb.name.toLowerCase().includes(result.attackTarget));
+          if (target && target.hp > 0) await this._enemyAttack(responder, target);
+          break;
+        case 'switch':
+          if (result.switchToTeam) {
+            responder.team = result.switchToTeam;
+            this.clog(`${responder.name} switches sides! Now fighting for ${result.switchToTeam}.`, 'cl-system');
+            this._calculateTurnOrder();
+          }
+          break;
+        case 'plead':
+          this.clog(`${responder.name} pleads for mercy.`, 'cl-system');
+          break;
+        case 'reinforce':
+          this.clog(`${responder.name} calls reinforcements!`, 'cl-system');
+          this._addReinforcement(responder);
+          break;
+      }
+      this.refresh();
+      const enemiesRemaining = c.combatants.filter(cb => cb.team === 'enemy' && cb.hp > 0);
+      if (enemiesRemaining.length === 0) this.endCombat('win');
+      else if (State.hp <= 0) this.endCombat('death');
+      else this._nextTurn();
+    } catch(e) {
+      console.error('Combat chat error:', e);
+      this.clog(`${responder.name} ignores you.`, 'cl-enemy');
+      this._nextTurn();
+    }
+  },
+
+  async _enemyAttack(attacker, target) {
+    const { skill, dmg, dodged } = this._rollEnemyAction(attacker);
+    if (dodged) {
+      this.clog(`${attacker.name} attacks ${target.name} — DODGED!`, 'cl-miss');
+      return;
+    }
+    if (dmg > 0) {
+      target.hp = Math.max(0, target.hp - dmg);
+      if (target.id === 'player') State.hp = target.hp;
+      this.clog(`${attacker.name} hits ${target.name} for ${dmg} damage!`, 'cl-enemy');
+      if (target.id === 'player' && State.hp <= 0) this.endCombat('death');
+    }
+  },
+
   _addReinforcement(attacker) {
     const c = activeCombat;
     const newEnemy = {
@@ -581,450 +939,56 @@ Reply with JSON: {"response":"their spoken words","action":"attack|negotiate|swi
       hp: 30,
       maxHp: 30,
       level: Math.max(1, (attacker.level || 1) - 1),
-      description: 'A reinforcement that was called in',
-      skills: [{ name: 'Punch', damage: [5, 10], energyCost: 5, cooldown: 0, currentCooldown: 0 }],
+      description: 'Reinforcement',
+      skills: [{ name: 'Punch', damage: [5,10], energyCost:5, cooldown:0, currentCooldown:0, statusEffect:null }],
       statusEffects: [],
+      pendingActions: [],
+      tempMods: {},
+      statModDurations: {},
+      reflectPercent: 0,
+      reflectDuration: 0,
+      immunities: [],
       agi: 5,
       isPlayer: false
     };
     c.combatants.push(newEnemy);
     this._calculateTurnOrder();
-  },
-  
-  async playerAction(skillName, targetId) {
-    if (!activeCombat || activeCombat.locked) return;
-    const c = activeCombat;
-    const currentTurn = c.turnOrder[c.currentTurnIndex];
-    
-    if (!currentTurn?.isPlayer) {
-      this.clog('Not your turn!', 'cl-system');
-      return;
-    }
-    
-    activeCombat.locked = true;
-    
-    // Check if stunned
-    const stunIdx = c.playerObj.statusEffects.findIndex(s => s.type === 'skip');
-    if (stunIdx !== -1) {
-      c.playerObj.statusEffects[stunIdx].duration--;
-      if (c.playerObj.statusEffects[stunIdx].duration <= 0)
-        c.playerObj.statusEffects.splice(stunIdx, 1);
-      await this._narrate(
-        '▶ STUNNED — you cannot act this turn',
-        `Player is stunned and loses their turn.`,
-        'cl-system'
-      );
-      this._nextTurn();
-      return;
-    }
-    
-    if (skillName === '__wait') {
-      State.energy = Math.min(State.maxEnergy, State.energy + 25);
-      await this._narrate(
-        `▶ WAIT — +25 EN (${State.energy}/${State.maxEnergy})`,
-        `Player waits and recovers energy.`,
-        'cl-player'
-      );
-      this._nextTurn();
-      return;
-    }
-    
-    if (skillName === '__flee') {
-      const roll = Math.floor(Math.random() * 20) + 1;
-      const thr = 8 - Math.floor(State.stats.agi / 2);
-      const success = roll >= thr;
-      
-      const fleeResult = {
-        roll: roll,
-        threshold: thr,
-        success: success,
-        agi: State.stats.agi
-      };
-      
-      if (success) {
-        await this._narrate(
-          `▶ FLEE — success (roll ${roll})`,
-          `Player successfully flees the fight.`,
-          'cl-system'
-        );
-        setTimeout(() => this.endCombat('flee', fleeResult), 800);
-      } else {
-        await this._narrate(
-          `▶ FLEE — failed (roll ${roll}, needed ${thr}+)`,
-          `Player tries to flee but fails.`,
-          'cl-miss'
-        );
-        this._nextTurn();
-      }
-      return;
-    }
-    
-    if (skillName === '__item') {
-      const consumable = State.inventory.find(i =>
-        /stim|heal|med|inject|boost|patch|syringe/i.test(i.name) && i.amount > 0
-      );
-      if (consumable) {
-        const healAmt = 20 + State.stats.tec * 2;
-        State.hp = Math.min(State.maxHp, State.hp + healAmt);
-        c.playerObj.hp = State.hp;
-        if (window.Sound) Sound.itemUse();
-        consumable.amount--;
-        if (consumable.amount <= 0) State.inventory.splice(State.inventory.indexOf(consumable), 1);
-        await this._narrate(
-          `▶ ${consumable.name} — +${healAmt} HP (${State.hp}/${State.maxHp})`,
-          `Player uses a ${consumable.name} and heals ${healAmt} HP.`,
-          'cl-player'
-        );
-        this._nextTurn();
-      }
-      return;
-    }
-    
-    const skill = State.skills.find(s => s.name === skillName);
-    if (!skill) { activeCombat.locked = false; return; }
-    if (State.energy < skill.energyCost) { activeCombat.locked = false; return; }
-    
-    State.energy -= skill.energyCost;
-    c.cooldowns[skill.name] = skill.cooldown || 0;
-    
-    // Find target
-    let targetIndex = -1;
-    if (targetId) {
-      targetIndex = c.combatants.findIndex(cb => cb.id === targetId);
-    } else {
-      const enemies = c.combatants.filter(cb => cb.team !== 'player' && cb.hp > 0);
-      if (enemies.length > 0) {
-        targetIndex = c.combatants.findIndex(cb => cb.id === enemies[0].id);
-      }
-    }
-    
-    if (skill.damage && targetIndex !== -1) {
-      const { dmg, isCrit, statusApplied } = this._rollPlayerSkill(skill, targetIndex);
-      const target = c.combatants[targetIndex];
-      target.hp -= dmg;
-      
-      if (window.Sound) Sound.combatHit(true);
-      
-      let mechMsg = `▶ ${skill.name} on ${target.name} — ${dmg} dmg${isCrit ? ' [CRIT]' : ''}`;
-      let aiCtx = `Player uses ${skill.name} on ${target.name}, dealing ${dmg} damage${isCrit ? ' with a critical hit' : ''}`;
-      
-      if (skill.statusEffect && statusApplied) {
-        mechMsg += ` [${skill.statusEffect.name} applied]`;
-        aiCtx += `, inflicting ${skill.statusEffect.name}`;
-      }
-      
-      await this._narrate(mechMsg, aiCtx + '.', isCrit ? 'cl-crit' : 'cl-player');
-      
-      if (target.hp <= 0) {
-        this.clog(`⚔ ${target.name} has been defeated!`, 'cl-system');
-        activeCombat.defeatedEnemies.push({ name: target.name, id: target.id });
-        const defeatedIndex = c.combatants.findIndex(cb => cb.id === target.id);
-        if (defeatedIndex !== -1) c.combatants.splice(defeatedIndex, 1);
-      }
-    }
-    
-    this.refresh();
-    
-    // Check if all enemies defeated
-    const enemiesRemaining = c.combatants.filter(cb => cb.team === 'enemy' && cb.hp > 0);
-    if (enemiesRemaining.length === 0) {
-      setTimeout(() => this.endCombat('win'), 600);
-      return;
-    }
-    
-    this._nextTurn();
-  },
-  
-  async _nextTurn() {
-    if (!activeCombat) return;
-    const c = activeCombat;
-    
-    // Move to next combatant
-    c.currentTurnIndex++;
-    if (c.currentTurnIndex >= c.turnOrder.length) {
-      // End of round, start new round
-      c.currentTurnIndex = 0;
-      c.round++;
-      this._processEndOfRound();
-      this._calculateTurnOrder();
-    }
-    
-    const currentTurn = c.turnOrder[c.currentTurnIndex];
-    
-    // Update turn label
-    const turnLabel = document.getElementById('ceTurnLabel');
-    if (turnLabel) {
-      if (currentTurn?.isPlayer) {
-        turnLabel.textContent = 'YOUR TURN';
-        turnLabel.style.color = 'var(--green)';
-        activeCombat.locked = false;
-        this.refresh();
-      } else if (currentTurn) {
-        turnLabel.textContent = `${currentTurn.name.toUpperCase()}'S TURN`;
-        turnLabel.style.color = '#ff6b7a';
-        // Process non-player turn immediately
-        if (currentTurn.hp > 0) {
-          setTimeout(() => this._processNonPlayerTurn(currentTurn), 500);
-        } else {
-          // Skip dead combatants and go to next turn
-          this._nextTurn();
-        }
-      }
-    }
-  },
-  
-  async _processNonPlayerTurn(combatant) {
-    console.log(`[COMBAT] Processing ${combatant.name}'s turn`);
-    if (!activeCombat) return;
-    const c = activeCombat;
-    
-    // Check if combatant is stunned
-    const stunIdx = combatant.statusEffects.findIndex(s => s.type === 'skip');
-    if (stunIdx !== -1) {
-      combatant.statusEffects[stunIdx].duration--;
-      if (combatant.statusEffects[stunIdx].duration <= 0)
-        combatant.statusEffects.splice(stunIdx, 1);
-      this.clog(`${combatant.name} is stunned and cannot act!`, 'cl-status');
-      this._nextTurn();
-      return;
-    }
-    
-    // Enemy/ally action
-    const { skill, dmg, dodged, target } = this._rollEnemyAction(combatant);
-    
-    console.log(`[COMBAT] ${combatant.name} action:`, { skill: skill?.name, dmg, dodged, target: target?.name });
-    
-    if (!skill) {
-      this.clog(`${combatant.name} holds their position.`, 'cl-system');
-      this._nextTurn();
-      return;
-    }
-    
-    if (dodged) {
-      this.clog(`${combatant.name}'s ${skill.name} — DODGED!`, 'cl-miss');
-      this._nextTurn();
-      return;
-    }
-    
-    // Hit - apply damage
-    if (dmg > 0 && target) {
-      target.hp = Math.max(0, target.hp - dmg);
-      if (window.Sound) Sound.combatHit(false);
-      
-      if (target.id === 'player') {
-        State.hp = target.hp;
-        if (checkPlayerDeath()) return;
-        this.clog(`${combatant.name}'s ${skill.name} — ${dmg} dmg to you (${State.hp}/${State.maxHp} HP)`, 'cl-enemy');
-        
-        if (State.hp <= 0) {
-          this.endCombat('death');
-          return;
-        }
-      } else {
-        this.clog(`${combatant.name}'s ${skill.name} — ${dmg} dmg to ${target.name} (${target.hp}/${target.maxHp} HP)`, 'cl-enemy');
-      }
-      
-      if (skill.statusEffect) {
-        const ex = target.statusEffects.find(s => s.name === skill.statusEffect.name);
-        if (ex) ex.duration = skill.statusEffect.duration;
-        else target.statusEffects.push({ ...skill.statusEffect });
-        this.clog(`  ✦ ${skill.statusEffect.name} inflicted on ${target.name}`, 'cl-status');
-      }
-      if (target.hp <= 0 && target.team === 'enemy') {
-        this.clog(`${target.name} has been defeated!`, 'cl-system');
-        activeCombat.defeatedEnemies.push({ name: target.name, id: target.id });
-        const defeatedIndex = c.combatants.findIndex(cb => cb.id === target.id);
-        if (defeatedIndex !== -1) c.combatants.splice(defeatedIndex, 1);
-      }
-    }
-    
-    this.refresh();
-    
-    // Check for defeat
-    const enemiesRemaining = c.combatants.filter(cb => cb.team === 'enemy' && cb.hp > 0);
-    if (enemiesRemaining.length === 0) {
-      this.endCombat('win');
-      return;
-    }
-    
-    if (State.hp <= 0) {
-      this.endCombat('death');
-      return;
-    }
-    
-    // Move to next turn
-    this._nextTurn();
-  },
-  
-  _processEndOfRound() {
-    const c = activeCombat;
-    
-    // Process status effects for all combatants
-    c.combatants.forEach(combatant => {
-      for (let i = combatant.statusEffects.length - 1; i >= 0; i--) {
-        const sf = combatant.statusEffects[i];
-          if (sf.type === 'dot') {
-            const dmg = sf.value || 5;
-            combatant.hp = Math.max(0, combatant.hp - dmg);
-            this.clog(`  ${sf.name}: ${combatant.name} -${dmg} HP`, 'cl-status');
-            
-            if (combatant.id === 'player') State.hp = combatant.hp;
-            
-            // If enemy dies from DoT, track it
-            if (combatant.hp <= 0 && combatant.team === 'enemy') {
-              // Avoid duplicate entries
-              if (!activeCombat.defeatedEnemies.some(e => e.id === combatant.id)) {
-                activeCombat.defeatedEnemies.push({ name: combatant.name, id: combatant.id });
-              }
-              this.clog(`${combatant.name} has been defeated!`, 'cl-system');
-              // Do NOT splice here – we are iterating over combatants.
-              // The combatant will be removed when turn order recalculates.
-            }
-          }
-        if (sf.type === 'buff_hp' && combatant.id === 'player') {
-          State.hp = Math.min(State.maxHp, State.hp + sf.value);
-          combatant.hp = State.hp;
-          this.clog(`  ${sf.name}: +${sf.value} HP`, 'cl-status');
-        }
-        sf.duration--;
-        if (sf.duration <= 0) {
-          this.clog(`  ${sf.name} fades from ${combatant.name}.`, 'cl-system');
-          combatant.statusEffects.splice(i, 1);
-        }
-      }
-    });
-    
-    // Update player object
-    c.playerObj.hp = State.hp;
-    
-    // Reduce cooldowns
-    Object.keys(c.cooldowns).forEach(key => {
-      if (c.cooldowns[key] > 0) c.cooldowns[key]--;
-    });
-    
-    c.combatants.forEach(cb => {
-      if (cb.skills) {
-        cb.skills.forEach(sk => {
-          if (sk.currentCooldown > 0) sk.currentCooldown--;
-        });
-      }
-    });
-    
-    // Regenerate energy for player
-    State.energy = Math.min(State.maxEnergy, State.energy + 5 + Math.floor(State.stats.int / 2));
-  },
-
-    endCombat(outcome, fleeResult) {
-    const c = activeCombat;
-    if (!c) return;
-    document.getElementById('combatOverlay').classList.remove('open');
-    
-    const defeatedCount = c.defeatedEnemies.length;
-    const defeatedNames = c.defeatedEnemies.map(e => e.name).join(', ');
-    const alliesSurvived = c.combatants.filter(cb => cb.team === 'ally' && cb.hp > 0);
-    
-    if (outcome === 'win') {
-      // Use c.defeatedEnemies – not enemiesDefeated
-      if (defeatedNames) addKeyFact(`Defeated ${defeatedNames} in combat`);
-      const baseXp = defeatedCount * 25 + Math.floor(Math.random() * 20);
-      Ui.addInstant(`[ COMBAT VICTORY: ${defeatedCount} enemies defeated in ${c.round} rounds ]`, 'system');
-      
-      // Mark defeated enemies as dead in NPC log using c.defeatedEnemies
-      c.defeatedEnemies.forEach(enemy => {
-        const deadNpc = State.npcs.find(n => n.name.toLowerCase() === enemy.name.toLowerCase());
-        if (deadNpc) {
-          deadNpc.relationship = 'Dead';
-        } else {
-          State.npcs.push({ name: enemy.name, relationship: 'Dead', description: `Defeated in combat on Day ${State.gameDay}.` });
-        }
-      });
-      
-      // Update ally relationships if they survived
-      alliesSurvived.forEach(ally => {
-        const allyNpc = State.npcs.find(n => n.name.toLowerCase() === ally.name.toLowerCase());
-        if (allyNpc && allyNpc.relationship !== 'Ally') {
-          allyNpc.relationship = 'Ally';
-          Ui.addInstant(`[ ${ally.name} now trusts you after fighting alongside you! ]`, 'system');
-        }
-      });
-      
-      Ui.renderSidebar();
-      Llm.send(`[COMBAT WON] Defeated ${defeatedCount} enemies in ${c.round} rounds. Player HP: ${State.hp}/${State.maxHp}. Allies present: ${alliesSurvived.map(a => a.name).join(', ') || 'none'}. Narrate aftermath and grant ${baseXp} XP.`)
-        .then(resp => {
-          Engine.applyResponse(resp);
-          if (resp.narration) Ui.enqueue(resp.narration, 'narrator');
-          const tickerEl = buildTicker(resp, State.hp, State.credits, State.npcs);
-          if (tickerEl) {
-            document.getElementById('narrativeLog').appendChild(tickerEl);
-            document.getElementById('narrativeLog').scrollTop = 999999;
-          }
-          StatSystem.gainXp(baseXp);
-          const wq = () => { if (Ui.isTyping||Ui.typeQueue.length) setTimeout(wq,200); else { Ui.setInputLocked(false); Ui.updateHeader(); Ui.renderSidebar(); } };
-          wq();
-        });
-        
-    } else if (outcome === 'death') {
-      return;    
-    } else {
-      // FLEE outcome
-      Ui.addInstant(`[ You fled from combat ]`, 'system');
-      
-      let fleeContext = '';
-      if (fleeResult) {
-        fleeContext = `\nFlee roll: ${fleeResult.roll}/${fleeResult.threshold} needed. AGI: ${fleeResult.agi}.
-    - Success (roll >= threshold): Clean escape, no consequences
-    - Failure (roll < threshold): Escape but with consequences (lost credits, dropped items, etc.)
-    The roll was ${fleeResult.success ? 'SUCCESS' : 'FAILURE'}. Adjust consequences accordingly.`;
-      }
-      
-      Llm.send(`[COMBAT FLED] Player fled after ${c.round} rounds.${fleeContext} Narrate the escape.`)
-        .then(resp => {
-          Engine.applyResponse(resp);
-          if (resp.narration) Ui.enqueue(resp.narration, 'narrator');
-          const tickerEl = buildTicker(resp, State.hp, State.credits, State.npcs);
-          if (tickerEl) {
-            document.getElementById('narrativeLog').appendChild(tickerEl);
-            document.getElementById('narrativeLog').scrollTop = 999999;
-          }
-          const wq = () => { if (Ui.isTyping||Ui.typeQueue.length) setTimeout(wq,200); else { Ui.setInputLocked(false); Ui.updateHeader(); Ui.renderSidebar(); } };
-          wq();
-        });
-    }
-    
-    activeCombat = null;
-  },
+  }
 };
 
+// ------------------------------------------------------------
+//  QTE (Quick Time Event)
+// ------------------------------------------------------------
 const Qte = {
-  active:  false,
-  timer:   null,
+  active: false,
+  timer: null,
   resolve: null,
 
   trigger(qteData) {
     return new Promise(resolve => {
-      this.active  = true;
+      this.active = true;
       this.resolve = resolve;
 
-      const overlay   = document.getElementById('qteOverlay');
-      const promptEl  = document.getElementById('qtePrompt');
-      const btn       = document.getElementById('qteBtn');
+      const overlay = document.getElementById('qteOverlay');
+      const promptEl = document.getElementById('qtePrompt');
+      const btn = document.getElementById('qteBtn');
       const timerFill = document.getElementById('qteTimerFill');
 
       promptEl.textContent = qteData.prompt || 'React now!';
-      btn.textContent      = qteData.action || 'ACT';
+      btn.textContent = qteData.action || 'ACT';
 
       const ms = (qteData.timeLimit || 4) * 1000;
       timerFill.style.transition = 'none';
-      timerFill.style.width      = '100%';
+      timerFill.style.width = '100%';
       overlay.classList.add('open');
       Ui.setInputLocked(true);
 
       requestAnimationFrame(() => requestAnimationFrame(() => {
         timerFill.style.transition = `width ${ms}ms linear`;
-        timerFill.style.width      = '0%';
+        timerFill.style.width = '0%';
       }));
 
-      this.timer  = setTimeout(() => this.finish(false), ms);
+      this.timer = setTimeout(() => this.finish(false), ms);
       btn.onclick = () => this.finish(true);
     });
   },
@@ -1037,7 +1001,7 @@ const Qte = {
     document.getElementById('qteBtn').onclick = null;
     this.resolve?.(success);
     this.resolve = null;
-  },
+  }
 };
 
 document.addEventListener('keydown', e => {
