@@ -466,13 +466,26 @@ Example quest with reward: {"title":"Job","description":"Retrieve package from w
     // If full parse fails, extract individual fields using regex
     const fallback = {};
 
-    const narMatches = [...raw.matchAll(/"narration"\s*:\s*"((?:[^"\\]|\\.)*)"/g)];
-    if (narMatches.length > 0) {
-      // Combine all narrations into one
-      const allNarrations = narMatches.map(match => 
-        match[1].replace(/\\(?!["\\/bfnrt]|u[0-9a-fA-F]{4})/g, '')
-      );
-      fallback.narration = allNarrations.join(' ');
+    const narKey = raw.indexOf('"narration"');
+    if (narKey !== -1) {
+      const colonPos = raw.indexOf(':', narKey);
+      const quoteStart = raw.indexOf('"', colonPos + 1);
+      if (quoteStart !== -1) {
+        const afterOpen = quoteStart + 1;
+        const endMatch = raw.slice(afterOpen).match(/",\s*\n\s*"[a-z]/);
+        if (endMatch) {
+          fallback.narration = raw.slice(afterOpen, afterOpen + endMatch.index);
+        } else {
+          const closeMatch = raw.slice(afterOpen).match(/"\s*\n?\s*\}/);
+          if (closeMatch) {
+            fallback.narration = raw.slice(afterOpen, afterOpen + closeMatch.index);
+          } else {
+            fallback.narration = 'The city holds its breath.';
+          }
+        }
+      } else {
+        fallback.narration = 'The city holds its breath.';
+      }
     } else {
       fallback.narration = 'The city holds its breath.';
     }
