@@ -194,6 +194,15 @@ const Engine = {
       State.npcs = State.npcs.filter((npc, index, self) => 
         index === self.findIndex(n => n.name.toLowerCase() === npc.name.toLowerCase())
       );
+
+      resp.npcs.forEach(n => {
+        const existing = State.npcs.find(x => x.name.toLowerCase() === n.name.toLowerCase());
+        if (existing && existing.relationship !== n.relationship) {
+          addKeyFact(`${n.name} is now ${n.relationship.toLowerCase()}`);
+        } else if (!existing && !genericName(n.name)) {
+          addKeyFact(`Met ${n.name} (${n.relationship.toLowerCase()})`);
+        }
+      });
     }
 
     if (Array.isArray(resp.quests)) {
@@ -201,16 +210,25 @@ const Engine = {
         const title = capitalize(q.title || '');
         const ex    = State.quests.find(x => x.title.toLowerCase() === title.toLowerCase());
         if (ex) {
+          // If status changed to 'complete' and it wasn't already, add a key fact
+          if (q.status && q.status === 'complete' && ex.status !== 'complete') {
+            addKeyFact(`Completed quest: ${title}`);
+          }
+          if (q.status && q.status === 'failed' && ex.status !== 'failed') {
+            addKeyFact(`Failed quest: ${title}`);
+          }
           if (q.description) ex.description = q.description;
           if (q.status)      ex.status      = q.status;
-          if (q.reward)      ex.reward      = q.reward;  // Add reward field
+          if (q.reward)      ex.reward      = q.reward;
         } else {
           State.quests.push({ 
             title, 
             description: q.description || '', 
             status: q.status || 'active',
-            reward: q.reward || null  // Store reward
+            reward: q.reward || null
           });
+          // Optionally add fact when a new quest is accepted? Uncomment if desired:
+          // if (q.status === 'active') addKeyFact(`Accepted quest: ${title}`);
         }
       });
     }
@@ -278,6 +296,8 @@ const Engine = {
       if (!exists) {
         if (isValidSkill(resp.newSkill)) {
           State.skills.push({ ...resp.newSkill, currentCooldown:0 });
+          // Add key fact for learning a new skill
+          addKeyFact(`Learned new skill: ${resp.newSkill.name}`);
         } else {
           console.warn('Rejected invalid skill:', resp.newSkill.name);
           Ui.addInstant(`[ SYSTEM: skill "${resp.newSkill.name}" rejected — no combat value ]`, 'system');
