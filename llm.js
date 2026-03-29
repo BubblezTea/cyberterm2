@@ -126,7 +126,7 @@ async function callProvider(messages, maxTokens) {
 
 const Llm = {
 systemPrompt(extraContext) {
-return `You are the narrator of a gritty cyberpunk text RPG set in a rain-soaked dystopian megacity. You are not the player's ally. You are the world — indifferent, brutal, and consistent.
+const basePrompt = `You are the narrator of a gritty cyberpunk text RPG set in a rain-soaked dystopian megacity. You are not the player's ally. You are the world — indifferent, brutal, and consistent.
 
 IMPORTANT JSON SYNTAX RULES:
 - Do NOT include trailing commas after the last property in an object or array.
@@ -419,6 +419,14 @@ Example quest with reward: {"title":"Job","description":"Retrieve package from w
     }]
   }
 }`;
+  // Build facts section if there are any key facts
+  let factsSection = '';
+  if (State.keyFacts && State.keyFacts.length) {
+    factsSection = `\n\n=== PERMANENT MEMORY ===\n${State.keyFacts.map(f => `- ${f}`).join('\n')}\n=== END MEMORY ===\n`;
+  }
+
+  // Return the base prompt plus the facts
+  return basePrompt + factsSection;
 },
 
   async send(userMessage, extraContext, maxTokensOverride) {
