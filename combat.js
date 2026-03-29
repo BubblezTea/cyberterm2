@@ -189,8 +189,11 @@ One terse, visceral sentence. No numbers, no mechanics. Reply only: {"narration"
       turnOrder: [],
       currentTurnIndex: 0,
       combatLog: [],
-      dialogueEnabled: true
+      dialogueEnabled: true,
+      defeatedEnemies: []
     };
+
+    
     
     // Calculate turn order based on AGI
     this._calculateTurnOrder();
@@ -666,7 +669,7 @@ Reply with JSON: {"response":"their spoken words","action":"attack|negotiate|swi
       
       if (target.hp <= 0) {
         this.clog(`⚔ ${target.name} has been defeated!`, 'cl-system');
-        // Remove defeated combatant
+        activeCombat.defeatedEnemies.push({ name: target.name, id: target.id });
         const defeatedIndex = c.combatants.findIndex(cb => cb.id === target.id);
         if (defeatedIndex !== -1) c.combatants.splice(defeatedIndex, 1);
       }
@@ -778,6 +781,12 @@ Reply with JSON: {"response":"their spoken words","action":"attack|negotiate|swi
         else target.statusEffects.push({ ...skill.statusEffect });
         this.clog(`  ✦ ${skill.statusEffect.name} inflicted on ${target.name}`, 'cl-status');
       }
+      if (target.hp <= 0 && target.team === 'enemy') {
+        this.clog(`${target.name} has been defeated!`, 'cl-system');
+        activeCombat.defeatedEnemies.push({ name: target.name, id: target.id });
+        const defeatedIndex = c.combatants.findIndex(cb => cb.id === target.id);
+        if (defeatedIndex !== -1) c.combatants.splice(defeatedIndex, 1);
+      }
     }
     
     this.refresh();
@@ -805,13 +814,24 @@ Reply with JSON: {"response":"their spoken words","action":"attack|negotiate|swi
     c.combatants.forEach(combatant => {
       for (let i = combatant.statusEffects.length - 1; i >= 0; i--) {
         const sf = combatant.statusEffects[i];
-        if (sf.type === 'dot') {
-          const dmg = sf.value || 5;
-          combatant.hp = Math.max(0, combatant.hp - dmg);
-          this.clog(`  ${sf.name}: ${combatant.name} -${dmg} HP`, 'cl-status');
-          
-          if (combatant.id === 'player') State.hp = combatant.hp;
-        }
+          if (sf.type === 'dot') {
+            const dmg = sf.value || 5;
+            combatant.hp = Math.max(0, combatant.hp - dmg);
+            this.clog(`  ${sf.name}: ${combatant.name} -${dmg} HP`, 'cl-status');
+            
+            if (combatant.id === 'player') State.hp = combatant.hp;
+            
+            // If enemy dies from DoT, track it
+            if (combatant.hp <= 0 && combatant.team === 'enemy') {
+              // Avoid duplicate entries
+              if (!activeCombat.defeatedEnemies.some(e => e.id === combatant.id)) {
+                activeCombat.defeatedEnemies.push({ name: combatant.name, id: combatant.id });
+              }
+              this.clog(`${combatant.name} has been defeated!`, 'cl-system');
+              // Do NOT splice here – we are iterating over combatants.
+              // The combatant will be removed when turn order recalculates.
+            }
+          }
         if (sf.type === 'buff_hp' && combatant.id === 'player') {
           State.hp = Math.min(State.maxHp, State.hp + sf.value);
           combatant.hp = State.hp;
@@ -845,30 +865,28 @@ Reply with JSON: {"response":"their spoken words","action":"attack|negotiate|swi
     State.energy = Math.min(State.maxEnergy, State.energy + 5 + Math.floor(State.stats.int / 2));
   },
 
-  endCombat(outcome, fleeResult) {
+    endCombat(outcome, fleeResult) {
     const c = activeCombat;
     if (!c) return;
     document.getElementById('combatOverlay').classList.remove('open');
     
-    const enemiesDefeated = c.combatants.filter(cb => cb.team === 'enemy' && cb.hp <= 0);
-    const defeatedCount = enemiesDefeated.length;
+    const defeatedCount = c.defeatedEnemies.length;
+    const defeatedNames = c.defeatedEnemies.map(e => e.name).join(', ');
     const alliesSurvived = c.combatants.filter(cb => cb.team === 'ally' && cb.hp > 0);
     
     if (outcome === 'win') {
-      const defeatedNames = enemiesDefeated.map(e => e.name).join(', ');
+      // Use c.defeatedEnemies – not enemiesDefeated
       if (defeatedNames) addKeyFact(`Defeated ${defeatedNames} in combat`);
       const baseXp = defeatedCount * 25 + Math.floor(Math.random() * 20);
       Ui.addInstant(`[ COMBAT VICTORY: ${defeatedCount} enemies defeated in ${c.round} rounds ]`, 'system');
       
-      // Mark defeated enemies as dead in NPC log
-      c.combatants.forEach(cb => {
-        if (cb.team === 'enemy' && cb.hp <= 0) {
-          const deadNpc = State.npcs.find(n => n.name.toLowerCase() === cb.name.toLowerCase());
-          if (deadNpc) {
-            deadNpc.relationship = 'Dead';
-          } else {
-            State.npcs.push({ name: cb.name, relationship: 'Dead', description: `Defeated in combat on Day ${State.gameDay}. ${cb.description || ''}`.trim() });
-          }
+      // Mark defeated enemies as dead in NPC log using c.defeatedEnemies
+      c.defeatedEnemies.forEach(enemy => {
+        const deadNpc = State.npcs.find(n => n.name.toLowerCase() === enemy.name.toLowerCase());
+        if (deadNpc) {
+          deadNpc.relationship = 'Dead';
+        } else {
+          State.npcs.push({ name: enemy.name, relationship: 'Dead', description: `Defeated in combat on Day ${State.gameDay}.` });
         }
       });
       
@@ -902,7 +920,6 @@ Reply with JSON: {"response":"their spoken words","action":"attack|negotiate|swi
       // FLEE outcome
       Ui.addInstant(`[ You fled from combat ]`, 'system');
       
-      // Build flee context if we have fleeResult
       let fleeContext = '';
       if (fleeResult) {
         fleeContext = `\nFlee roll: ${fleeResult.roll}/${fleeResult.threshold} needed. AGI: ${fleeResult.agi}.
