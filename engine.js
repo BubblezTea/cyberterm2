@@ -55,6 +55,11 @@ const Engine = {
       this.pendingGui = resp.gui;
     }
 
+    if (resp.gui && resp.narration) {
+      console.warn('[ENGINE] Stripping narration because gui is present');
+      delete resp.narration;
+    }
+
     const rawTraits = resp.traits || (resp.trait ? [resp.trait] : []);
     if (rawTraits.length && !State.traits.length) {
       State.traits = rawTraits.map(t => {
