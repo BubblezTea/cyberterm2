@@ -317,6 +317,13 @@ Conditions:
 1. **ACCESSORIES** – Wearable gear needs "slot" (head/body/hands/back) and "statBonus" with 1-3 stat boosts.
 2. **CONSUMABLES** – Heal/stim items have slot:null
 
+=== EQUIPMENT RULES ===
+- NEVER use addItems or removeItems to simulate equipping or unequipping an item. The player equips items via the inventory UI, not through narration.
+- The only time addItems/removeItems should be used is when the player gains or loses items through narrative actions: looting, buying, selling, theft, quest rewards, etc.
+- Do NOT create an item with a name like "Tattered Leather Jacket (equipped)". Use the original item name and let the player equip it via the UI.
+- Wearable items (slot: body/head/hands/back) should never have a "gui" property. Only devices (phones, terminals) may have a gui.
+- Do NOT add a "gui" field to any item that has a non‑null slot.
+
 === TRAIT RULES ===
 - Every trait must have a concrete mechanical effect: stat increase (+1/2/3), advantage on rolls, damage reduction, HP/energy boost.
 - Format: "Name||Description||Mechanical effect"
