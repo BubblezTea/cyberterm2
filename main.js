@@ -604,6 +604,9 @@ async function startGame(chosenClass) {
   Ui.renderSidebar();
   Ui.setInputLocked(true);
 
+  const charScreen = document.getElementById('charCreateScreen');
+  if (charScreen) charScreen.style.display = 'none';
+
   State.history.push({ role:'assistant', content: JSON.stringify({ narration: "The game begins..." }) });
 
   const backstoryContext = State.backstory && State.tragedy && State.upbringing ? `
