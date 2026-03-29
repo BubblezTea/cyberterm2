@@ -142,7 +142,8 @@ async function handleStep1() {
 
 async function fetchLocationOptions() {
   const prompt = `Generate exactly 4 gritty cyberpunk DISTRICT names within a single megacity.
-Each name must be 2-4 words, evocative, and NOT include any of these names: "Ironhaven", "Shadowbrook", "The Pit", "Darkside Towers", "Rust Alley", "Neon Heights", "Sub-Level 6", "The Sprawl".
+Player name is "${State.playerName}". Let this name influence the district names (e.g., if the name sounds sharp, maybe districts have sharper names; if it's mysterious, make them enigmatic).
+Each name must be 2-4 words, evocative, and NOT include any of these: "Ironhaven", "Shadowbrook", "The Pit", "Darkside Towers", "Rust Alley", "Neon Heights", "Sub-Level 6", "The Sprawl".
 Make them completely new and varied. Avoid industrial themes for all of them.
 Respond only with a valid JSON array of strings. No markdown, no commentary.`;
   try {
@@ -177,6 +178,7 @@ async function showLocationChoices() {
     for (const loc of locations) {
       try {
         const descPrompt = `Describe ${loc} as a district within a cyberpunk megacity in one sentence. 
+Player name is "${State.playerName}". Let the name's vibe subtly influence the description.
 Focus on one distinctive, unusual feature that sets it apart from typical industrial zones. 
 Be specific—mention architecture, smell, sound, or a unique landmark. 
 Only the description, no extra text.`;
