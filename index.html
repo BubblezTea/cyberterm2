@@ -177,38 +177,52 @@
 <!-- ========== COMBAT OVERLAY ========== -->
 <div id="combatOverlay">
   <div id="combatPanel">
-    <div id="ceEnemyContainer" class="ce-combatants-container"></div>
-    <div id="ceAllyContainer" class="ce-combatants-container"></div>
 
-    <div id="ceRoundBar">
-      ROUND <span class="ce-round-num" id="ceRound">1</span>
-      &nbsp;|&nbsp; <span id="ceTurnLabel" style="color:var(--green)">YOUR TURN</span>
-    </div>
-
-    <div id="combatLog"></div>
-
-    <div id="cePlayer">
-      <div id="cpBars">
-        <div class="cp-bar-row">
-          <span class="cp-bar-label">HP</span>
-          <div class="cp-bar"><div class="cp-bar-fill hp-fill" id="cpHpFill"></div></div>
-          <span class="cp-bar-val" id="cpHpText"></span>
+    <div id="ceHeader">
+      <div id="ceRoundBadge">
+        <span class="ce-round-tag">RND</span>
+        <span id="ceRound" class="ce-round-num">1</span>
+      </div>
+      <div id="ceTurnDisplay">
+        <span class="ce-turn-pip">◈</span>
+        <span id="ceTurnLabel">YOUR TURN</span>
+        <span class="ce-turn-pip">◈</span>
+      </div>
+      <div id="ceVitals">
+        <div class="ce-vital-row">
+          <span class="ce-vital-lbl">HP</span>
+          <div class="ce-vital-bar"><div class="ce-vital-fill ce-hp-fill" id="cpHpFill"></div></div>
+          <span class="ce-vital-val" id="cpHpText">—</span>
         </div>
-        <div class="cp-bar-row">
-          <span class="cp-bar-label">EN</span>
-          <div class="cp-bar"><div class="cp-bar-fill en-fill" id="cpEnFill"></div></div>
-          <span class="cp-bar-val" id="cpEnText"></span>
+        <div class="ce-vital-row">
+          <span class="ce-vital-lbl">EN</span>
+          <div class="ce-vital-bar"><div class="ce-vital-fill ce-en-fill" id="cpEnFill"></div></div>
+          <span class="ce-vital-val" id="cpEnText">—</span>
         </div>
         <div id="cpStatuses"></div>
       </div>
+    </div>
+
+    <div id="ceBattlefield">
+      <div id="ceCombatantsCol">
+        <div class="ce-col-label">HOSTILES</div>
+        <div id="ceEnemyContainer"></div>
+        <div class="ce-col-label ce-allies-label" id="ceAllyLabel">ALLIES</div>
+        <div id="ceAllyContainer"></div>
+      </div>
+      <div id="combatLog"></div>
+    </div>
+
+    <div id="ceActionBar">
       <div id="combatSkillGrid"></div>
     </div>
+
   </div>
   <div id="combatChatPanel">
     <div id="combatChatLog"></div>
     <div id="combatChatInputRow">
       <span class="chat-prompt">[TALK]</span>
-      <input type="text" id="combatChatInput" placeholder="Say something during combat..." autocomplete="off" spellcheck="false">
+      <input type="text" id="combatChatInput" placeholder="say something..." autocomplete="off" spellcheck="false">
       <button id="combatChatSendBtn">SEND</button>
     </div>
   </div>

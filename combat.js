@@ -271,6 +271,8 @@ One terse, visceral sentence. No numbers, no mechanics. Reply only: {"narration"
     const allyContainer = document.getElementById('ceAllyContainer');
     if (allyContainer) {
       const allies = c.combatants.filter(cb => cb.team === 'ally' && cb.hp > 0);
+      const allyLabel = document.getElementById('ceAllyLabel');
+      if (allyLabel) allyLabel.style.display = allies.length > 0 ? 'block' : 'none';
       if (allies.length > 0) {
         allyContainer.innerHTML = allies.map(ally => `
           <div class="ce-ally-card" data-id="${ally.id}">

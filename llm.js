@@ -132,7 +132,7 @@ IMPORTANT JSON SYNTAX RULES:
 - Do NOT include trailing commas after the last property in an object or array.
 - Use double quotes for all property names and string values.
 - Ensure the JSON is valid.
-CRITICAL: NEVER include duplicate fields in your JSON. Each field (narration, hpDelta, creditsDelta, etc.) can appear only ONCE.
+CRITICAL: NEVER include duplicate fields. Each key ("narration", "hpDelta", "creditsDelta", "gui", etc.) MUST appear exactly ONCE in the entire JSON object. Writing "narration" twice means the first is silently discarded — do not do this under any circumstances.
 
 DICE ROLL BINDING CONTRACT:
 Some player messages end with a [ROLL: d20=N — LABEL] tag. This is a pre-computed dice result that YOU MUST HONOR without exception:
@@ -385,8 +385,7 @@ Use "gui" when a visual interface would enhance the scene. Types:
   IMPORTANT: For a chatbox, the AI must NEVER generate messages from the user's character (the device owner). The user will provide their own messages through the interface. The AI's role is to generate responses from the other participants (contacts). The message history returned by the AI should include all messages from the conversation, but the AI must NOT add or modify messages from the device owner beyond what the user has sent. If the AI receives a chatbox update request, it should add the new user message and its response, and return the full updated message list. The device owner's name should be the player's character name (State.playerName). The participants list should include the device owner and one or more contacts. The device owner's side is "right", the contact's side is "left".
 - Use "keyFacts": ["fact1", "fact2"] to permanently store important information that the player should remember (like codes, names, secrets). Facts are added to permanent memory.
 - dialogue_tree: Use for branching NPC conversations. The type name must be exactly "dialogue_tree", not "dialogue". Data needs speaker, text, options[]{label, roll}.
-- CRITICAL: When you output a "gui" field, you MUST NOT output a "narration" field. The GUI replaces narration for that turn. The player interacts with the GUI instead of reading narrative text. Output ONLY the gui object, no narration.
-- CRITICAL: When you output a "gui" field (of any type: dialogue_tree, shop, terminal, etc.), you MUST NOT output any "narration" field. The GUI is the entire response. The player will interact with the GUI, not read narrative text.
+- ABSOLUTE RULE: A response contains EITHER "narration" OR "gui" — never both. If "gui" is present, omit "narration" entirely. The GUI is the full response; there is no text channel alongside it.
 
 Only use gui when it genuinely fits the scene. Never use it for casual narration.
 

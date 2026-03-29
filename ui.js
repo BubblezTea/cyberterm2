@@ -443,26 +443,16 @@ function showItemPopup(item) {
         Ui.renderSidebar();
         popup.classList.remove('open');
       });
-      const activateBtn = document.createElement('button');
-      activateBtn.className = 'item-popup-use-btn';
-      activateBtn.textContent = 'ACTIVATE';
-      activateBtn.addEventListener('click', () => {
-        popup.classList.remove('open');
-        if (item.gui) {
+      if (item.gui) {
+        const activateBtn = document.createElement('button');
+        activateBtn.className = 'item-popup-use-btn';
+        activateBtn.textContent = 'ACTIVATE';
+        activateBtn.addEventListener('click', () => {
+          popup.classList.remove('open');
           GuiEngine.show(item.gui);
-        } else {
-          Ui.setInputLocked(true);
-          Llm.send(`[EQUIPPED ITEM ACTIVATED] Player activates "${item.name}". Description: "${item.description}".`)
-            .then(resp => {
-              Engine.applyResponse(resp);
-              if (resp.gui) GuiEngine.show(resp.gui);
-              if (resp.narration) Ui.enqueue(resp.narration, 'narrator');
-              const wq = () => { if (Ui.isTyping || Ui.typeQueue.length) setTimeout(wq, 200); else { Ui.setInputLocked(false); Ui.updateHeader(); Ui.renderSidebar(); }};
-              wq();
-            });
-        }
-      });
-      actionsEl.appendChild(activateBtn);
+        });
+        actionsEl.appendChild(activateBtn);
+      }
     } else {
       const equipBtn = document.createElement('button');
       equipBtn.className = 'item-popup-equip-btn';
@@ -493,59 +483,80 @@ function showItemPopup(item) {
     }
   }
 
-  // consumable use button
-  if (item.gui) {
-    // static gui item
-    const useBtn = document.createElement('button');
-    useBtn.className = 'item-popup-use-btn';
-    useBtn.textContent = 'USE';
-    useBtn.addEventListener('click', () => {
-      popup.classList.remove('open');
-      GuiEngine.show(item.gui);
-    });
-    actionsEl.appendChild(useBtn);
-
-  } else if (!/stim|heal|med|inject|boost|patch|syringe/i.test(item.name)) {
-    // For items that are not simple consumables (they may open a GUI)
-    const useBtn = document.createElement('button');
-    useBtn.className = 'item-popup-use-btn';
-    useBtn.textContent = 'USE';
-    useBtn.addEventListener('click', async () => {
-      popup.classList.remove('open');
-
-      if (item.gui) {
-        // Reuse stored GUI
+  // consumable/usable buttons — only for items without an equipment slot
+  if (!item.slot) {
+    if (item.gui) {
+      const useBtn = document.createElement('button');
+      useBtn.className = 'item-popup-use-btn';
+      useBtn.textContent = 'USE';
+      useBtn.addEventListener('click', () => {
+        popup.classList.remove('open');
         GuiEngine.show(item.gui);
-      } else {
-        Ui.setInputLocked(true);
-        try {
-          const resp = await Llm.send(`[ITEM USED] Player uses "${item.name}". Description: "${item.description}". Generate appropriate GUI or narration for using this item.`);
-          Engine.applyResponse(resp);
-          if (resp.gui) {
-            // Store GUI on item for future use
-            item.gui = resp.gui;
-            GuiEngine.show(resp.gui);
-            // Do NOT enqueue narration – GUI is the interface
-          } else if (resp.narration) {
-            Ui.enqueue(resp.narration, 'narrator');
-          }
-        } catch (err) {
-          console.error('Item use error:', err);
-          Ui.addInstant('[USE FAILED]', 'system');
-        } finally {
-          const waitForUnlock = () => {
-            if (Ui.isTyping || Ui.typeQueue.length) setTimeout(waitForUnlock, 200);
-            else {
-              Ui.setInputLocked(false);
-              Ui.updateHeader();
-              Ui.renderSidebar();
-            }
-          };
-          waitForUnlock();
+      });
+      actionsEl.appendChild(useBtn);
+    } else if (item.statBonus && (item.statBonus.hp || item.statBonus.energy)) {
+      const useBtn = document.createElement('button');
+      useBtn.className = 'item-popup-use-btn';
+      useBtn.textContent = 'USE';
+      useBtn.addEventListener('click', () => {
+        popup.classList.remove('open');
+        if (item.statBonus.hp) {
+          State.maxHp += item.statBonus.hp;
+          State.hp += item.statBonus.hp;
+          Ui.addInstant(`[ PERMANENT +${item.statBonus.hp} MAX HP ]`, 'system');
         }
-      }
-    });
-    actionsEl.appendChild(useBtn);
+        if (item.statBonus.energy) {
+          State.maxEnergy += item.statBonus.energy;
+          State.energy += item.statBonus.energy;
+          Ui.addInstant(`[ PERMANENT +${item.statBonus.energy} MAX ENERGY ]`, 'system');
+        }
+        item.amount--;
+        if (item.amount <= 0) {
+          const idx = State.inventory.indexOf(item);
+          if (idx !== -1) State.inventory.splice(idx, 1);
+        }
+        Ui.updateHeader();
+        Ui.renderSidebar();
+        if (window.Sound) Sound.itemUse();
+      });
+      actionsEl.appendChild(useBtn);
+    } else if (!/stim|heal|med|inject|boost|patch|syringe/i.test(item.name)) {
+      const useBtn = document.createElement('button');
+      useBtn.className = 'item-popup-use-btn';
+      useBtn.textContent = 'USE';
+      useBtn.addEventListener('click', async () => {
+        popup.classList.remove('open');
+        if (item.gui) {
+          GuiEngine.show(item.gui);
+        } else {
+          Ui.setInputLocked(true);
+          try {
+            const resp = await Llm.send(`[ITEM USED] Player uses "${item.name}". Description: "${item.description}". Generate appropriate GUI or narration for using this item.`);
+            Engine.applyResponse(resp);
+            if (resp.gui) {
+              item.gui = resp.gui;
+              GuiEngine.show(resp.gui);
+            } else if (resp.narration) {
+              Ui.enqueue(resp.narration, 'narrator');
+            }
+          } catch (err) {
+            console.error('Item use error:', err);
+            Ui.addInstant('[USE FAILED]', 'system');
+          } finally {
+            const waitForUnlock = () => {
+              if (Ui.isTyping || Ui.typeQueue.length) setTimeout(waitForUnlock, 200);
+              else {
+                Ui.setInputLocked(false);
+                Ui.updateHeader();
+                Ui.renderSidebar();
+              }
+            };
+            waitForUnlock();
+          }
+        }
+      });
+      actionsEl.appendChild(useBtn);
+    }
   }
 
   popup.classList.add('open');
