@@ -2038,3 +2038,124 @@ body, html {
   background: var(--green-md);
   box-shadow: 0 0 8px var(--green-glow);
 }
+
+/* Skill Target Modal */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(2,4,3,0.95);
+  z-index: 5000;
+  align-items: center;
+  justify-content: center;
+}
+.modal-overlay.open { display: flex; }
+
+.skill-target-box {
+  background: var(--bg2);
+  border: 1px solid var(--border-hi);
+  box-shadow: 0 0 40px var(--green-glow);
+  width: 380px;
+  max-width: 90vw;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.skill-target-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg3);
+}
+.skill-target-title {
+  font-family: 'VT323', monospace;
+  font-size: 22px;
+  color: var(--green);
+  letter-spacing: 2px;
+}
+.skill-target-close {
+  background: transparent;
+  border: none;
+  color: var(--text-lo);
+  font-size: 20px;
+  cursor: pointer;
+}
+.skill-target-close:hover { color: var(--red); }
+
+.skill-target-body {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.skill-target-question {
+  font-size: 14px;
+  color: var(--text-dim);
+  letter-spacing: 1px;
+}
+.skill-target-input {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 14px;
+  padding: 10px;
+  outline: none;
+  width: 100%;
+}
+.skill-target-input:focus {
+  border-color: var(--green);
+}
+.skill-target-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 11px;
+}
+.skill-target-suggestion {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  padding: 4px 10px;
+  cursor: pointer;
+  color: var(--text-dim);
+  transition: all 0.1s;
+}
+.skill-target-suggestion:hover {
+  border-color: var(--green);
+  color: var(--green);
+  background: var(--green-lo);
+}
+
+.skill-target-actions {
+  display: flex;
+  gap: 12px;
+  padding: 12px 20px 20px;
+  border-top: 1px solid var(--border);
+}
+.skill-target-cancel, .skill-target-confirm {
+  flex: 1;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-lo);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 12px;
+  padding: 8px;
+  cursor: pointer;
+  letter-spacing: 1px;
+  transition: all 0.1s;
+}
+.skill-target-confirm {
+  border-color: var(--green);
+  color: var(--green);
+}
+.skill-target-cancel:hover {
+  border-color: var(--red);
+  color: var(--red);
+}
+.skill-target-confirm:hover {
+  background: var(--green-lo);
+  box-shadow: 0 0 10px var(--green-glow);
+}

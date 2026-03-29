@@ -307,7 +307,6 @@ const Ui = {
       <div class="skill-card" data-skill="${skill.name}">
         <div class="skill-name">${skill.name}</div>
         <div class="skill-desc">${skill.description || ''}</div>
-        <div class="skill-meta">⚡ ${skill.energyCost} EN | 🔁 CD ${skill.cooldown}</div>
         <button class="skill-use-btn">USE</button>
       </div>
     `).join('');
@@ -315,14 +314,61 @@ const Ui = {
     panel.querySelectorAll('.skill-use-btn').forEach((btn, idx) => {
       btn.addEventListener('click', () => {
         const skill = State.skills[idx];
-        let target = prompt(`Use "${skill.name}" on what? (e.g., "door", "computer", "Ark")`, "surroundings");
-        if (target === null) return;
-        const message = `I use ${skill.name} on ${target}`;
-        // Simulate player input
-        const input = document.getElementById('playerInput');
-        input.value = message;
-        handlePlayerInput(); // triggers AI response
+        // Open custom modal instead of prompt
+        this.showSkillTargetModal(skill);
       });
+    });
+  },
+
+  showSkillTargetModal(skill) {
+    const modal = document.getElementById('skillTargetModal');
+    const titleEl = document.getElementById('skillTargetTitle');
+    const questionEl = document.getElementById('skillTargetQuestion');
+    const inputEl = document.getElementById('skillTargetInput');
+    const suggestionsContainer = document.getElementById('skillTargetSuggestions');
+    const confirmBtn = document.getElementById('skillTargetConfirm');
+    const cancelBtn = document.getElementById('skillTargetCancel');
+    const closeBtn = document.getElementById('skillTargetClose');
+
+    titleEl.textContent = `USE: ${skill.name}`;
+    questionEl.textContent = `Where / what do you want to target with ${skill.name}?`;
+    inputEl.value = '';
+    suggestionsContainer.innerHTML = '';
+
+    // Optional: Add dynamic suggestions based on current location
+    const suggestions = ['surroundings', 'door', 'computer', 'floor', 'wall', 'enemy', 'ally'];
+    suggestions.forEach(sug => {
+      const chip = document.createElement('span');
+      chip.className = 'skill-target-suggestion';
+      chip.textContent = sug;
+      chip.addEventListener('click', () => {
+        inputEl.value = sug;
+        confirmBtn.click();
+      });
+      suggestionsContainer.appendChild(chip);
+    });
+
+    const closeModal = () => modal.classList.remove('open');
+    const onConfirm = () => {
+      let target = inputEl.value.trim();
+      if (!target) target = 'surroundings';
+      closeModal();
+      const message = `I use ${skill.name} on ${target}`;
+      const gameInput = document.getElementById('playerInput');
+      gameInput.value = message;
+      handlePlayerInput();
+    };
+
+    confirmBtn.onclick = onConfirm;
+    cancelBtn.onclick = closeModal;
+    closeBtn.onclick = closeModal;
+    modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+
+    modal.classList.add('open');
+    inputEl.focus();
+    inputEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') onConfirm();
+      if (e.key === 'Escape') closeModal();
     });
   },
 

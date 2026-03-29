@@ -447,6 +447,9 @@ QUEST RULES
 - Active Quests: ${JSON.stringify(State.quests)}
 ${extraContext || ''}
 
+SKILLS OUTSIDE COMBAT
+When the player says "I use [skill name] on [target]" (or clicks the USE button), interpret the effect using the skill's description. Ignore energy cost and cooldown – those only apply in combat. The skill is not consumed. Apply appropriate JSON changes (hpDelta, creditsDelta, addItems, removeItems, newLocation, timeAdvance, statDelta) as needed. Narrate the outcome vividly. If the skill would logically have a resource cost (e.g., using a healing stim), you may deduct credits or remove an item, but do not enforce energy or cooldown.
+
 === GUI RULES ===
 Use "gui" when a visual interface would enhance the scene. Types:
 - shop: vendor selling items. data needs vendor, greeting, items[]{name,price,description,slot}

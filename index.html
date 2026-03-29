@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="gui_styles.css">
   <script>
     // === SINGLE VERSION CONTROL ===
-    const GAME_VERSION = "2.0";
+    const GAME_VERSION = "2.01";
     // Update title and any version displays
     document.addEventListener('DOMContentLoaded', () => {
       document.title = `CYBERTERM // v${GAME_VERSION}`;
@@ -161,6 +161,7 @@
         <button class="tab-btn" data-tab="quests">QUEST</button>
         <button class="tab-btn" data-tab="trait">TRAIT</button>
         <button class="tab-btn" data-tab="stats">STATS</button>
+        <button class="tab-btn" data-tab="skills">SKILL</button>
       </div>
 
       <div class="tab-panel active" id="tab-inv"></div>
@@ -169,6 +170,7 @@
       <div class="tab-panel" id="tab-quests"></div>
       <div class="tab-panel" id="tab-trait"></div>
       <div class="tab-panel" id="tab-stats"></div>
+      <div class="tab-panel" id="tab-skills"></div>
     </div>
   </div>
 </div>
@@ -389,6 +391,25 @@
     </div>
     <div class="modal-msg" id="modalMsg"></div>
     <button class="modal-close-btn" id="modalClose">[ CLOSE ]</button>
+  </div>
+</div>
+
+<!-- Skill Target Modal -->
+<div id="skillTargetModal" class="modal-overlay">
+  <div class="skill-target-box">
+    <div class="skill-target-header">
+      <span class="skill-target-title" id="skillTargetTitle">USE SKILL</span>
+      <button class="skill-target-close" id="skillTargetClose">✕</button>
+    </div>
+    <div class="skill-target-body">
+      <div class="skill-target-question" id="skillTargetQuestion">What do you want to target?</div>
+      <input type="text" id="skillTargetInput" class="skill-target-input" placeholder="e.g., door, computer, Ark, ground..." autocomplete="off" spellcheck="false">
+      <div class="skill-target-suggestions" id="skillTargetSuggestions"></div>
+    </div>
+    <div class="skill-target-actions">
+      <button class="skill-target-cancel" id="skillTargetCancel">CANCEL</button>
+      <button class="skill-target-confirm" id="skillTargetConfirm">USE</button>
+    </div>
   </div>
 </div>
 
