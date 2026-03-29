@@ -946,6 +946,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const settingsClose   = document.getElementById('settingsClose');
   const settingsSave    = document.getElementById('settingsSave');
   const settingsMsg     = document.getElementById('settingsMsg');
+  const settingsBtn     = document.getElementById('settingsBtn');
+  const menuSettingsBtn = document.getElementById('menuSettingsBtn');
 
   const providerBtns = ['provGroq', 'provOllama', 'provOpenAI', 'provOpenrouter', 'provGemini', 'provQwen', 'provDeepseek', 'provHuggingface'];
 
@@ -984,26 +986,30 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   function openSettings() {
-    Object.entries(providerInputIds).forEach(([provider, ids]) => {
-      const cfg = providerConfigs[provider];
-      if (ids.key)   document.getElementById(ids.key).value   = cfg.apiKey || '';
-      if (ids.model) document.getElementById(ids.model).value = cfg.model  || '';
-      if (ids.url)   document.getElementById(ids.url).value   = cfg.url    || '';
-    });
+    try {
+      Object.entries(providerInputIds).forEach(([provider, ids]) => {
+        const cfg = providerConfigs[provider];
+        if (ids.key)   { const el = document.getElementById(ids.key);   if (el) el.value = cfg.apiKey || ''; }
+        if (ids.model) { const el = document.getElementById(ids.model); if (el) el.value = cfg.model  || ''; }
+        if (ids.url)   { const el = document.getElementById(ids.url);   if (el) el.value = cfg.url    || ''; }
+      });
 
-    providerBtns.forEach(id => {
-      const btn      = document.getElementById(id);
-      const provider = id.replace('prov', '').toLowerCase();
-      if (btn) btn.classList.toggle('active', AI_PROVIDER === provider);
-    });
+      providerBtns.forEach(id => {
+        const btn      = document.getElementById(id);
+        const provider = id.replace('prov', '').toLowerCase();
+        if (btn) btn.classList.toggle('active', AI_PROVIDER === provider);
+      });
 
-    Object.entries(providerFieldsMap).forEach(([provider, fieldId]) => {
-      const el = document.getElementById(fieldId);
-      if (el) el.style.display = AI_PROVIDER === provider ? 'flex' : 'none';
-    });
+      Object.entries(providerFieldsMap).forEach(([provider, fieldId]) => {
+        const el = document.getElementById(fieldId);
+        if (el) el.style.display = AI_PROVIDER === provider ? 'flex' : 'none';
+      });
 
-    settingsMsg.textContent = '';
-    settingsOverlay.classList.add('open');
+      if (settingsMsg)    settingsMsg.textContent = '';
+      if (settingsOverlay) settingsOverlay.classList.add('open');
+    } catch(e) {
+      console.error('[openSettings crash]', e);
+    }
   }
 
   function closeSettings() {
@@ -1124,6 +1130,9 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     });
   }
+
+  if (settingsBtn)     settingsBtn.addEventListener('click', openSettings);
+  if (menuSettingsBtn) menuSettingsBtn.addEventListener('click', openSettings);
 
   const saveBtn  = document.getElementById('saveBtn');
   const loadBtn  = document.getElementById('loadBtn');
