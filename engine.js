@@ -125,6 +125,28 @@ const Engine = {
         resp.creditsDelta = (typeof resp.creditsDelta === 'number' && resp.creditsDelta > 0) ? 0 : resp.creditsDelta;
       }
     }
+    
+    // equipped gate: if this looks like an equipped version, delete the equipped version
+    if (Array.isArray(resp.addItems)) {
+      // Filter out any addItem that looks like an equipped version
+      resp.addItems = resp.addItems.filter(item => {
+        if (item.name && (item.name.includes('(equipped)') || item.name.includes('equipped'))) {
+          console.warn(`Blocked adding equipped item: ${item.name}`);
+          return false;
+        }
+        return true;
+      });
+    }
+
+    if (Array.isArray(resp.removeItems)) {
+      resp.removeItems = resp.removeItems.filter(item => {
+        if (item.name && (item.name.includes('(equipped)') || item.name.includes('equipped'))) {
+          console.warn(`Blocked removing equipped item: ${item.name}`);
+          return false;
+        }
+        return true;
+      });
+    }
 
     if (Array.isArray(resp.removeItems)) {
       resp.removeItems.forEach(item => {
