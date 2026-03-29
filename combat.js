@@ -845,19 +845,20 @@ Reply with JSON: {"response":"their spoken words","action":"attack|negotiate|swi
     State.energy = Math.min(State.maxEnergy, State.energy + 5 + Math.floor(State.stats.int / 2));
   },
 
-  endCombat(outcome) {
+  endCombat(outcome, fleeResult) {
     const c = activeCombat;
     if (!c) return;
     document.getElementById('combatOverlay').classList.remove('open');
     
-    const enemiesDefeated = c.combatants.filter(cb => cb.team === 'enemy' && cb.hp <= 0).length;
+    const enemiesDefeated = c.combatants.filter(cb => cb.team === 'enemy' && cb.hp <= 0);
+    const defeatedCount = enemiesDefeated.length;
     const alliesSurvived = c.combatants.filter(cb => cb.team === 'ally' && cb.hp > 0);
     
     if (outcome === 'win') {
       const defeatedNames = enemiesDefeated.map(e => e.name).join(', ');
       if (defeatedNames) addKeyFact(`Defeated ${defeatedNames} in combat`);
-      const baseXp = enemiesDefeated * 25 + Math.floor(Math.random() * 20);
-      Ui.addInstant(`[ COMBAT VICTORY: ${enemiesDefeated} enemies defeated in ${c.round} rounds ]`, 'system');
+      const baseXp = defeatedCount * 25 + Math.floor(Math.random() * 20);
+      Ui.addInstant(`[ COMBAT VICTORY: ${defeatedCount} enemies defeated in ${c.round} rounds ]`, 'system');
       
       // Mark defeated enemies as dead in NPC log
       c.combatants.forEach(cb => {
@@ -881,7 +882,7 @@ Reply with JSON: {"response":"their spoken words","action":"attack|negotiate|swi
       });
       
       Ui.renderSidebar();
-      Llm.send(`[COMBAT WON] Defeated ${enemiesDefeated} enemies in ${c.round} rounds. Player HP: ${State.hp}/${State.maxHp}. Allies present: ${alliesSurvived.map(a => a.name).join(', ') || 'none'}. Narrate aftermath and grant ${baseXp} XP.`)
+      Llm.send(`[COMBAT WON] Defeated ${defeatedCount} enemies in ${c.round} rounds. Player HP: ${State.hp}/${State.maxHp}. Allies present: ${alliesSurvived.map(a => a.name).join(', ') || 'none'}. Narrate aftermath and grant ${baseXp} XP.`)
         .then(resp => {
           Engine.applyResponse(resp);
           if (resp.narration) Ui.enqueue(resp.narration, 'narrator');
@@ -905,9 +906,9 @@ Reply with JSON: {"response":"their spoken words","action":"attack|negotiate|swi
       let fleeContext = '';
       if (fleeResult) {
         fleeContext = `\nFlee roll: ${fleeResult.roll}/${fleeResult.threshold} needed. AGI: ${fleeResult.agi}.
-  - Success (roll >= threshold): Clean escape, no consequences
-  - Failure (roll < threshold): Escape but with consequences (lost credits, dropped items, etc.)
-  The roll was ${fleeResult.success ? 'SUCCESS' : 'FAILURE'}. Adjust consequences accordingly.`;
+    - Success (roll >= threshold): Clean escape, no consequences
+    - Failure (roll < threshold): Escape but with consequences (lost credits, dropped items, etc.)
+    The roll was ${fleeResult.success ? 'SUCCESS' : 'FAILURE'}. Adjust consequences accordingly.`;
       }
       
       Llm.send(`[COMBAT FLED] Player fled after ${c.round} rounds.${fleeContext} Narrate the escape.`)
