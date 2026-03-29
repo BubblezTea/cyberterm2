@@ -1175,7 +1175,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const mobileSidebarToggle = document.getElementById('mobileSidebarToggle');
   const sidebar             = document.getElementById('sidebar');
   if (mobileSidebarToggle && sidebar) {
-    mobileSidebarToggle.addEventListener('click', () => sidebar.classList.toggle('drawer-open'));
+    mobileSidebarToggle.addEventListener('click', () => {
+      sidebar.classList.toggle('drawer-open');
+      // Also toggle a class on the body to let CSS know the drawer is open
+      document.body.classList.toggle('sidebar-drawer-open');
+    });
     const narrativePane = document.getElementById('narrativePane');
     if (narrativePane) {
       narrativePane.addEventListener('click', () => {
