@@ -152,7 +152,7 @@ const Ui = {
             <div class="gear-slot-name">${item.name}</div>
             <div class="gear-slot-bonus">${bonusStr}</div>
           </div>
-          ${item.gui ? `<button class="gear-activate-btn" data-slot="${key}">▶</button>` : ''}
+          ${(item.slot === null || item.slot === 'null') && item.gui ? `<button class="gear-activate-btn" data-slot="${key}">▶</button>` : ''}
           <button class="gear-unequip-btn" data-slot="${key}">✕</button>
         </div>`;
       }
