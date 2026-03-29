@@ -446,10 +446,15 @@ async function chooseTragedy(id) {
 
   let storyText = tragedy.desc;
   try {
-    const prompt = `Write exactly 3-4 sentences about the night ${State.playerName} lost everything. The tragedy: ${tragedy.name} — ${tragedy.desc}.
-${State.playerName} grew up in ${State.origin}. Their backstory: ${State.backstory}.
+    const prompt = `Describe the night ${State.playerName} lost everything. The tragedy: ${tragedy.name} — ${tragedy.desc}.
+  ${State.playerName} grew up in ${State.origin}. Their backstory: ${State.backstory}.
 
-IMPORTANT: Do NOT reveal who did it. The shooter's identity should be completely unknown - a shadow, a figure, a blur. Describe the loss, the aftermath, the memory that haunts them. But the perpetrator remains a mystery. Write in second person (you). Only the narrative text, nothing else.`;
+  Write a narrative that begins with a specific date and time (e.g., "On the night of February 14, 2045...").
+  Tell the event in 3-4 sentences, past tense, second person ("you").
+  Focus on what happened: actions, what you saw, what was done.
+  Do NOT include reflective language like "still echoes", "haunts me", or "I remember".
+  Do NOT reveal who did it – keep the perpetrator a shadow, a figure, a blur.
+  Only the narrative text, nothing else.`;
 
     const raw = await queueRequest(() => callProvider([{ role:'user', content:prompt }], 250));
     storyText = raw.trim().replace(/^["']|["']$/g, '');
