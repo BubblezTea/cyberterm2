@@ -263,6 +263,29 @@ When the player finally discovers the truth, generate a dramatic reveal descript
     { "name": "Thug 2", "level": 2, "hp": 45, "agi": 5, "description": "Another thug, armed with a knife.", "skills": [...] }
   ]
 
+=== COMBAT TRIGGER - STRICT RULES ===
+When the player uses ANY of these phrases, you MUST output a "combat" field:
+- "I attack", "I fight", "I punch", "I shoot", "I stab", "I hit"
+- "I start fighting", "I engage", "I draw my weapon", "I swing"
+- "I kill", "I murder", "I assault"
+
+**EXCEPTIONS (do NOT trigger combat):**
+- Playful/joking context: "I punch V in the arm playfully"
+- The target is already dead or unconscious
+- The player explicitly says "I try to scare them without fighting"
+
+**If the player says "I go up to a random thug and start fighting them":**
+→ You MUST output a "combat" field with at least one enemy (the thug).
+→ Do NOT narrate the fight outcome. Do NOT have NPCs intervene.
+→ The combat system will handle the fight turn by turn.
+
+**ABSOLUTE PROHIBITION:**
+- NEVER resolve a fight through narration alone.
+- NEVER have NPCs interrupt or save the player unless the player is literally about to die and a quest-relevant NPC is present.
+- NEVER skip combat because the thug "wouldn't fight back" – thugs fight back.
+
+If the player initiates violence, you MUST respond with a "combat" object.
+
 === SOCIAL STAT SYSTEM ===
 The player's CHA (charisma) stat is ${State.stats.cha}. This stat directly affects all social interactions:
 - CHA 1-3: Awkward, forgettable, off-putting. NPCs dismiss, ignore, or exploit them.
