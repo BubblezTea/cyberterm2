@@ -12,6 +12,11 @@ function isValidSkill(sk) {
   return hasDamage || hasStatus;
 }
 
+function genericName(name) {
+  const generic = ['bar patron', 'customer', 'stranger', 'citizen', 'guard', 'civilian', 'bystander'];
+  return generic.some(g => name.toLowerCase().includes(g));
+}
+
 function generateDefaultSkills() {
   const cl = State.playerClass.toLowerCase();
   if (cl.includes('netrunner') || cl.includes('hacker')) return [
