@@ -591,31 +591,30 @@ Example quest with reward: {"title":"Job","description":"Retrieve package from w
   },
 
   async getClasses() {
-    const prompt = `Generate exactly 4 cyberpunk character classes for a noir RPG. 
-  Each class must be UNIQUE and INVENTIVE. Avoid generic names like "Merc", "Fixer". 
-  Think of specialized, unusual concepts: e.g., "Netrunner", "Data Ghoul", "Synth-Priest", "Rust Prophet", "Glitch Dancer".
+    const prompt = `Generate exactly 4 cyberpunk character classes for a noir RPG, inspired by the player's name: "${State.playerName || 'a mysterious figure'}". 
+Let the name influence the classes – think about its sound, possible meanings, or the vibe it gives.
+Each class must be UNIQUE and INVENTIVE. Avoid generic names like "Netrunner", "Merc", "Fixer". 
+Think of specialized, unusual concepts: e.g., "Chrome Surgeon", "Data Ghoul", "Synth-Priest", "Rust Prophet", "Glitch Dancer".
 
-  For each class, provide:
-  - "name": a 1-3 word name that evokes a specific role or concept (not just "Hacker" or "Soldier").
-  - "description": a single evocative sentence that hints at their unique style and backstory.
-  - "startHp": between 60 and 100.
-  - "startCredits": between 0 and 200.
-  - "stats": an object with 5 skills: combat, hacking, stealth, social, tech. Each stat must be between 1 and 12, and the total must equal exactly 25.
+For each class, provide:
+- "name": a 1-3 word name that evokes a specific role or concept.
+- "description": a single evocative sentence that hints at their unique style and backstory.
+- "startHp": between 60 and 100.
+- "startCredits": between 0 and 200.
+- "stats": an object with 5 skills: combat, hacking, stealth, social, tech. Each stat between 1 and 12, total = 25.
 
-  The classes should cover a variety of playstyles, but they must NOT be the standard four archetypes. Be creative.
+Respond ONLY with valid JSON. No markdown, no commentary.
 
-  Respond ONLY with valid JSON. No markdown, no commentary.
+Example (do not use this exact class):
+{
+  "name": "Synth-Priest",
+  "description": "A bio-modded mystic who hears the whispers of ancient corporate networks.",
+  "startHp": 75,
+  "startCredits": 120,
+  "stats": { "combat":3, "hacking":8, "stealth":5, "social":6, "tech":3 }
+}
 
-  Example (do not use this exact class):
-  {
-    "name": "Synth-Priest",
-    "description": "A bio-modded mystic who hears the whispers of ancient corporate networks.",
-    "startHp": 75,
-    "startCredits": 120,
-    "stats": { "combat":3, "hacking":8, "stealth":5, "social":6, "tech":3 }
-  }
-
-  Now generate 4 distinct, creative classes.`;
+Now generate 4 distinct, creative classes.`;
 
     const fallback = [
       { name:'Chrome Surgeon',   description:'A back-alley ripperdoc who learned to fight with scalpels and medical chrome.', startHp:80,  startCredits:120, stats:{combat:5,hacking:4,stealth:6,social:7,tech:3} },
