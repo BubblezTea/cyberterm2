@@ -241,11 +241,11 @@ async function showClassChoices() {
         <span class="ccc-name">// ${c.name.toUpperCase()} //</span>
         <span class="ccc-desc">${c.description}</span>
         <div class="class-stats" style="margin-top: 8px;">
-          ${statBar('STR',  stats.str || 0, 'red')}
-          ${statBar('AGI', stats.agi || 0, 'cyan')}
-          ${statBar('INT', stats.int || 0, '')}
-          ${statBar('CHA',  stats.cha || 0, 'gold')}
-          ${statBar('TEC',    stats.tec || 0, '')}
+          ${statBar('STR',    stats.str || 0, 'red' )}
+          ${statBar('AGI',    stats.agi || 0, 'cyan')}
+          ${statBar('INT',    stats.int || 0, ''    )}
+          ${statBar('CHA',    stats.cha || 0, 'gold')}
+          ${statBar('TEC',    stats.tec || 0, ''    )}
         </div>
         <div class="class-starting">
           <div class="cs-chip ${warn}">HP <span>${hp}</span></div>
