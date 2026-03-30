@@ -279,8 +279,10 @@ async function showClassChoices() {
       if (!selectedClass) { errorDiv.textContent = 'SELECT A CLASS TO CONTINUE'; return; }
       const cd = classData[selectedClass];
       State.playerClass = selectedClass;
-      State.hp = cd.startHp;
-      State.maxHp = cd.startHp;
+      State.classBaseHp = cd.startHp;
+      State.classBaseEnergy = cd.startEnergy;
+      State.maxHp = StatSystem.calcMaxHp();
+      State.hp = State.maxHp;
       State.credits = cd.startCredits;
       State.stats = { ...State.stats, ...cd.coreStats };
       State.maxEnergy = StatSystem.calcMaxEnergy();

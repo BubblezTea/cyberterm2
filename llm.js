@@ -779,7 +779,8 @@ Example quest with reward: {"title":"Job","description":"Retrieve package from w
   For each class, provide:
   - "name": a 1-3 word name.
   - "description": a single evocative sentence.
-  - "startHp": between 70 and 100.
+  - "startHp": between 70 and 120.
+  - "startEnergy": between 60 and 200.
   - "startCredits": between 0 and 200.
   - "coreStats": an object with keys str, agi, int, cha, tec, end. Each value between 1 and 20, sum exactly 60.
 
@@ -822,6 +823,7 @@ Example quest with reward: {"title":"Job","description":"Retrieve package from w
           name: c.name,
           description: c.description,
           startHp: c.startHp || 80,
+          startEnergy: c.startEnergy || 70,
           startCredits: c.startCredits || 100,
           coreStats: c.coreStats || { str:8, agi:8, int:8, cha:8, tec:8, end:8 }
         }));

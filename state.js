@@ -28,7 +28,10 @@ const State = {
   maxEnergy:      70,
   skills:         [],
   equipped:       { head:null, body:null, hands:null, back:null },
-  keyFacts: [],
+  keyFacts:       [],
+
+  classBaseHp:    80,
+  classBaseEnergy:70,
 };
 
 const SAVE_PREFIX = 'ct_save_';
