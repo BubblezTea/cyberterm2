@@ -481,8 +481,12 @@ async function chooseTragedy(id) {
     }`;
 
     const raw = await queueRequest(() => callProvider([{ role: 'user', content: prompt }], 350));
-    let cleaned = raw.replace(/^```json\s*/i, '').replace(/```$/g, '').trim();
+    let cleaned = raw.replace(/^```json\s*\n?/i, '').replace(/\n?```$/g, '').trim();
     cleaned = cleaned.replace(/,\s*([}\]])/g, '$1');
+
+    if (cleaned.includes('```')) {
+      cleaned = cleaned.replace(/```json\s*/i, '').replace(/```/g, '').trim();
+    }
 
     let result;
     try {
