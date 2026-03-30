@@ -781,7 +781,7 @@ For each class, provide:
 - "description": a single evocative sentence that hints at their unique style and backstory.
 - "startHp": between 60 and 100.
 - "startCredits": between 0 and 200.
-- "stats": an object with 5 skills: combat, hacking, stealth, social, tech. Each stat between 1 and 12, total = 25.
+- "stats": an object with 5 skills: combat, hacking, stealth, social, tech. Each stat between 1 and 20, total = 50.
 
 Respond ONLY with valid JSON. No markdown, no commentary.
 

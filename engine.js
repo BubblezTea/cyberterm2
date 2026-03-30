@@ -123,6 +123,8 @@ const Engine = {
       if (!exists) {
         if (isValidSkill(resp.newSkill)) {
           State.skills.push({ ...resp.newSkill, currentCooldown:0 });
+          addKeyFact(`Learned new skill: ${resp.newSkill.name}`);
+          Ui.addInstant(`[ LEARNED: ${resp.newSkill.name} ]`, 'system');
         } else {
           console.warn('Rejected invalid skill:', resp.newSkill.name);
           Ui.addInstant(`[ SYSTEM: skill "${resp.newSkill.name}" rejected — no combat value ]`, 'system');
@@ -290,6 +292,7 @@ const Engine = {
       });
     }
 
+    /*
     if (resp.initialStats && !State.skills.length) {
       const s = resp.initialStats;
       ['str','agi','int','cha','tec','end'].forEach(k => {
@@ -300,6 +303,7 @@ const Engine = {
       State.maxEnergy = StatSystem.calcMaxEnergy();
       State.energy    = State.maxEnergy;
     }
+    */
 
     if (!State.skills.length && Object.values(State.stats).every(v => v === 4)) {
       const cl = State.playerClass.toLowerCase();
