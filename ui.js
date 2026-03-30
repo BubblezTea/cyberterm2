@@ -303,6 +303,7 @@ const Ui = {
       panel.innerHTML = '<div class="panel-empty">[ NO SKILLS ]</div>';
       return;
     }
+    const canEdit = !window.Multiplayer?.enabled || window.Multiplayer?.isHost?.();
     panel.innerHTML = State.skills.map((skill, idx) => `
       <div class="skill-card" data-skill="${skill.name}">
         <div class="skill-name">${skill.name}</div>
@@ -314,7 +315,7 @@ const Ui = {
         </div>
         <div style="display:flex; gap:8px; margin-top:6px;">
           <button class="skill-use-btn" data-idx="${idx}">USE</button>
-          <button class="skill-edit-btn" data-idx="${idx}">EDIT</button>
+          ${canEdit ? `<button class="skill-edit-btn" data-idx="${idx}">EDIT</button>` : ''}
         </div>
       </div>
     `).join('');
@@ -325,12 +326,14 @@ const Ui = {
         Ui.showSkillTargetModal(skill);
       });
     });
-    panel.querySelectorAll('.skill-edit-btn').forEach((btn, i) => {
-      btn.addEventListener('click', () => {
-        const skill = State.skills[i];
-        SkillBuilder.open(skill);
+    if (canEdit) {
+      panel.querySelectorAll('.skill-edit-btn').forEach((btn, i) => {
+        btn.addEventListener('click', () => {
+          const skill = State.skills[i];
+          SkillBuilder.open(skill);
+        });
       });
-    });
+    }
   },
 
   showSkillTargetModal(skill) {

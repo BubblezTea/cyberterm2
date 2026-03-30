@@ -1280,6 +1280,8 @@ const SkillBuilder = (() => {
       orig();
       const panel = document.getElementById('tab-skills');
       if (!panel) return;
+      const canForge = !window.Multiplayer?.enabled || window.Multiplayer?.isHost?.();
+      if (!canForge) return;
       // Remove existing button if present to avoid duplicates
       const existing = panel.querySelector('.skb-open-btn');
       if (existing) existing.remove();

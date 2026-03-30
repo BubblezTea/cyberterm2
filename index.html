@@ -28,6 +28,7 @@
     <div style="display:flex; gap:24px;">
       <button id="menuSettingsBtn" class="hdr-action-btn" style="padding:12px 24px; font-size:16px;">⚙ SETTINGS</button>
       <button id="menuStartBtn" class="hdr-action-btn" style="padding:12px 24px; font-size:16px; background:var(--green-lo);">▶ START</button>
+      <button id="menuMultiplayerBtn" class="hdr-action-btn" style="padding:12px 24px; font-size:16px;">⟟ MULTI</button>
     </div>
     <button id="continueBtn" class="hdr-action-btn" style="padding:8px 24px; font-size:14px; width:auto; min-width:160px;">⟳ CONTINUE</button>
   </div>
@@ -155,6 +156,7 @@
         <button class="tab-btn" data-tab="trait">TRAIT</button>
         <button class="tab-btn" data-tab="stats">STATS</button>
         <button class="tab-btn" data-tab="skills">SKILL</button>
+        <button class="tab-btn" data-tab="mp">MP</button>
       </div>
 
       <div class="tab-panel active" id="tab-inv"></div>
@@ -164,6 +166,7 @@
       <div class="tab-panel" id="tab-trait"></div>
       <div class="tab-panel" id="tab-stats"></div>
       <div class="tab-panel" id="tab-skills"></div>
+      <div class="tab-panel" id="tab-mp"></div>
     </div>
   </div>
 </div>
@@ -227,13 +230,57 @@
 <div id="consoleOverlay">
   <div id="consolePanel">
     <div id="consoleHeader">
-      <span class="console-title">// DEV CONSOLE //</span>
-      <span class="console-hint">` TO TOGGLE &nbsp;|&nbsp; TYPE "help" FOR COMMANDS</span>
+      <div class="console-mac-left">
+        <span class="console-dot red" title="close"></span>
+        <span class="console-dot yellow" title="minimize"></span>
+        <span class="console-dot green" title="zoom"></span>
+        <span class="console-title">// DEV CONSOLE //</span>
+      </div>
+      <span class="console-hint">` TO TOGGLE &nbsp;|&nbsp; DRAG HEADER &nbsp;|&nbsp; TYPE "help"</span>
     </div>
     <div id="consoleLog"></div>
     <div id="consoleInputRow">
       <span>#</span>
       <input id="consoleInput" placeholder="enter command..." autocomplete="off" spellcheck="false">
+    </div>
+  </div>
+</div>
+
+<!-- ========== MULTIPLAYER OVERLAY ========== -->
+<div id="mpOverlay">
+  <div class="mp-box">
+    <div class="mp-title">// MULTIPLAYER //</div>
+    <div class="mp-sub">ROOMS · 1–4 PLAYERS · HOST IS AUTHORITATIVE</div>
+
+    <div class="mp-row">
+      <div class="mp-field">
+        <div class="mp-label">YOUR NAME</div>
+        <input id="mpName" class="mp-input" placeholder="handle" autocomplete="off" spellcheck="false" maxlength="20">
+      </div>
+    </div>
+
+    <div class="mp-split">
+      <div class="mp-card">
+        <div class="mp-card-title">HOST</div>
+        <div class="mp-card-desc">Create a room code and run the local relay server.</div>
+        <button id="mpHostBtn" class="mp-btn mp-primary">CREATE ROOM</button>
+        <div class="mp-roomline">ROOM: <span id="mpRoomCode">—</span></div>
+      </div>
+
+      <div class="mp-card">
+        <div class="mp-card-title">JOIN</div>
+        <div class="mp-card-desc">Enter a room code to connect.</div>
+        <input id="mpJoinCode" class="mp-input" placeholder="ROOM CODE" autocomplete="off" spellcheck="false" maxlength="12">
+        <button id="mpJoinBtn" class="mp-btn">JOIN ROOM</button>
+      </div>
+    </div>
+
+    <div class="mp-status" id="mpStatus"></div>
+    <div id="mpLobbyControls" style="display:none"></div>
+
+    <div class="mp-actions">
+      <button id="mpCloseBtn" class="mp-btn">[ CLOSE ]</button>
+      <button id="mpLeaveBtn" class="mp-btn mp-danger" style="display:none">[ LEAVE ROOM ]</button>
     </div>
   </div>
 </div>
@@ -439,6 +486,7 @@
 <script src="state.js"></script>
 <script src="engine.js"></script>
 <script src="llm.js"></script>
+<script src="multiplayer.js"></script>
 <script src="ui.js"></script>
 <script src="combat.js"></script>
 <script src="gui.js"></script>

@@ -95,6 +95,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function openSettings() {
     try {
+      const mpEnabled = !!window.Multiplayer?.enabled;
+      const mpHost = !!window.Multiplayer?.isHost?.();
+      const isLockedClient = mpEnabled && !mpHost;
+
       Object.entries(providerInputIds).forEach(([provider, ids]) => {
         const cfg = providerConfigs[provider];
         if (ids.key)   { const el = document.getElementById(ids.key);   if (el) el.value = cfg.apiKey || ''; }
@@ -113,7 +117,47 @@ document.addEventListener('DOMContentLoaded', () => {
         if (el) el.style.display = AI_PROVIDER === provider ? 'flex' : 'none';
       });
 
-      if (settingsMsg)     settingsMsg.textContent = '';
+      // Multiplayer settings lock: clients can ONLY change sound.
+      // Host keeps full control.
+      const providerGroup = document.getElementById('provGroq')?.closest('.settings-group');
+      const soundGroup = document.getElementById('soundOn')?.closest('.settings-group');
+      const combatNarrGroup = document.getElementById('combatNarrOn')?.closest('.settings-group');
+
+      if (isLockedClient) {
+        if (settingsMsg) {
+          settingsMsg.textContent = 'HOST LOCKED SETTINGS — SOUND ONLY';
+          settingsMsg.className = 'settings-msg ok';
+        }
+
+        // Hide provider + API fields
+        if (providerGroup) providerGroup.style.display = 'none';
+        Object.values(providerFieldsMap).forEach(fid => {
+          const el = document.getElementById(fid);
+          if (el) el.style.display = 'none';
+        });
+        providerBtns.forEach(id => {
+          const btn = document.getElementById(id);
+          if (btn) btn.style.display = 'none';
+        });
+
+        // Hide combat narration toggle + apply/save
+        if (combatNarrGroup) combatNarrGroup.style.display = 'none';
+        if (settingsSave) settingsSave.style.display = 'none';
+
+        // Ensure sound stays visible
+        if (soundGroup) soundGroup.style.display = 'flex';
+      } else {
+        // Reset any hidden bits for host/solo
+        if (providerGroup) providerGroup.style.display = 'flex';
+        providerBtns.forEach(id => {
+          const btn = document.getElementById(id);
+          if (btn) btn.style.display = '';
+        });
+        if (combatNarrGroup) combatNarrGroup.style.display = 'flex';
+        if (settingsSave) settingsSave.style.display = '';
+        if (settingsMsg) settingsMsg.textContent = '';
+      }
+
       if (settingsOverlay) settingsOverlay.classList.add('open');
     } catch (e) {
       console.error('[openSettings crash]', e);
@@ -296,9 +340,13 @@ document.addEventListener('DOMContentLoaded', () => {
   // dev console
   const consoleOverlay = document.getElementById('consoleOverlay');
   const consoleInput   = document.getElementById('consoleInput');
+  const consolePanel   = document.getElementById('consolePanel');
+  const consoleHeader  = document.getElementById('consoleHeader');
 
   function toggleConsole() {
     if (!consoleOverlay) return;
+    // Multiplayer: host only
+    if (window.Multiplayer?.enabled && !window.Multiplayer?.isHost?.()) return;
     const open = consoleOverlay.classList.toggle('open');
     if (open && consoleInput) {
       consoleInput.focus();
@@ -310,6 +358,59 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const consoleBtn = document.getElementById('consoleBtn');
   if (consoleBtn) consoleBtn.addEventListener('click', toggleConsole);
+
+  // draggable console window (Mac terminal-style)
+  (function initConsoleDrag() {
+    if (!consolePanel || !consoleHeader) return;
+    let dragging = false;
+    let startX = 0, startY = 0;
+    let startLeft = 0, startTop = 0;
+
+    const clamp = (v, mn, mx) => Math.max(mn, Math.min(mx, v));
+
+    const onMove = (e) => {
+      if (!dragging) return;
+      const x = (e.clientX ?? 0);
+      const y = (e.clientY ?? 0);
+      const dx = x - startX;
+      const dy = y - startY;
+      const rect = consolePanel.getBoundingClientRect();
+      const w = rect.width;
+      const h = rect.height;
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const left = clamp(startLeft + dx, 10, vw - w - 10);
+      const top = clamp(startTop + dy, 10, vh - h - 10);
+      consolePanel.style.left = left + 'px';
+      consolePanel.style.top = top + 'px';
+    };
+
+    const onUp = () => {
+      dragging = false;
+      document.body.style.cursor = '';
+      consoleHeader.style.cursor = 'grab';
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+
+    consoleHeader.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;
+      // Don't start drag when interacting with input-like elements
+      if (e.target && (e.target.closest('input,button,select,textarea,a'))) return;
+      dragging = true;
+      const rect = consolePanel.getBoundingClientRect();
+      startX = e.clientX;
+      startY = e.clientY;
+      startLeft = rect.left;
+      startTop = rect.top;
+      document.body.style.cursor = 'grabbing';
+      consoleHeader.style.cursor = 'grabbing';
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
+      try { consoleHeader.setPointerCapture(e.pointerId); } catch (_) {}
+      e.preventDefault();
+    });
+  })();
 
   document.addEventListener('keydown', e => {
     if ((e.key === '`' || e.key === '~') && document.getElementById('gameScreen')?.classList.contains('active')) {
@@ -401,14 +502,38 @@ document.addEventListener('DOMContentLoaded', () => {
   // player input
   const sendBtn     = document.getElementById('sendBtn');
   const playerInput = document.getElementById('playerInput');
-  if (sendBtn) sendBtn.addEventListener('click', handlePlayerInput);
+  const updateSendBtnLabel = () => {
+    if (!sendBtn) return;
+    if (window.Multiplayer?.enabled) {
+      sendBtn.textContent = 'LOCK IN';
+    } else {
+      sendBtn.textContent = 'SEND';
+    }
+  };
+
+  const handleSendOrLock = () => {
+    if (window.Multiplayer?.enabled) {
+      const text = playerInput?.value?.trim() || '';
+      const ok = window.Multiplayer.lockIn(text);
+      if (!ok) return;
+      if (playerInput) playerInput.value = '';
+      Ui.addInstant('[ LOCKED IN ]', 'system');
+      Ui.setInputLocked(true);
+      // Host will unlock after AI/sync; clients unlock on sync
+      return;
+    }
+    handlePlayerInput();
+  };
+
+  if (sendBtn) sendBtn.addEventListener('click', handleSendOrLock);
   if (playerInput) {
     playerInput.addEventListener('input', function() {
       this.style.height = 'auto';
       this.style.height = this.scrollHeight + 'px';
+      if (window.Multiplayer?.enabled) window.Multiplayer.setDraft(this.value);
     });
     playerInput.addEventListener('keydown', e => {
-      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handlePlayerInput(); }
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendOrLock(); }
     });
   }
 
@@ -426,4 +551,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   window.refreshLastResponse = refreshLastResponse;
   boot();
+
+  // keep button label in sync
+  updateSendBtnLabel();
+  setInterval(updateSendBtnLabel, 600);
 });

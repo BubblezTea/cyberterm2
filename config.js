@@ -73,6 +73,15 @@ function saveAiConfig() {
 
 const MAX_TOKENS = 5000;
 
+// Multiplayer relay (WebSocket)
+// Run the included relay server locally, then set this if needed.
+// Example: ws://localhost:8787
+window.MULTIPLAYER_WS_URL = 'wss://cyberterm2.onrender.com';
+
+// Multiplayer mode:
+// - "ws": hosted relay server (no port-forward for players)
+window.MULTIPLAYER_MODE = (window.MULTIPLAYER_MODE || 'ws');
+
 // ─── request queue ─────────────────────────────────────
 let lastRequestTime = 0;
 let queueLocked     = false;

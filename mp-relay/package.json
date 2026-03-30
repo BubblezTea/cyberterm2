@@ -1,0 +1,14 @@
+{
+  "name": "cyberterm-mp-relay",
+  "version": "1.0.0",
+  "private": true,
+  "description": "CYBERTERM local multiplayer relay (1-4 players)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.3"
+  }
+}
+
