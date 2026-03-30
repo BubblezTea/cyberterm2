@@ -1,4 +1,4 @@
-// gui.js - Fixed version
+// gui.js
 
 const escapeHtml = window.escapeHtml || function(str) {
   return str.replace(/[&<>]/g, function(m) {
@@ -30,13 +30,8 @@ const GuiEngine = {
   _terminalOutput(lines, append = true) {
     const linesContainer = document.getElementById('guiTerminalLines');
     if (!linesContainer) return;
-    
     const linesArray = Array.isArray(lines) ? lines : [lines];
-    
-    if (!append) {
-      linesContainer.innerHTML = '';
-    }
-    
+    if (!append) linesContainer.innerHTML = '';
     linesArray.forEach(line => {
       const lineEl = document.createElement('div');
       lineEl.className = 'gui-t-line';
@@ -49,17 +44,13 @@ const GuiEngine = {
   _terminalSetActions(gui, actions, prompt) {
     const actionsContainer = document.getElementById('guiTActions');
     if (!actionsContainer) return;
-    
     const promptEl = document.getElementById('guiTPrompt');
     if (promptEl && prompt) promptEl.textContent = prompt;
-    
     actionsContainer.innerHTML = actions.map((a, i) => {
       const label = typeof a === 'string' ? a : (a.label || a.action || `ACTION ${i}`);
       const rollAttr = a.roll ? `data-roll="${a.roll}"` : '';
       return `<button class="gui-btn gui-t-action" data-index="${i}" ${rollAttr}>${label}</button>`;
     }).join('');
-    
-    // Re-bind actions - capture gui in closure
     const self = this;
     actionsContainer.querySelectorAll('.gui-t-action').forEach(btn => {
       const idx = parseInt(btn.dataset.index);
@@ -67,32 +58,13 @@ const GuiEngine = {
     });
   },
 
-  async _handleTerminalAction(gui, actionIndex) {
-    if (this.pendingAction) return;
-    this.pendingAction = true;
-    
-    const action = gui.data.actions[actionIndex];
-    const label = typeof action === 'string' ? action : (action.label || action.action || `ACTION ${actionIndex}`);
-    
-    // Show selection in terminal
-    this._terminalOutput(`> ${label}`);
-    
-    // Handle roll if needed
-    let rollResult = null;
-    let rollLabel = '';
-    if (action.roll === 'hacking') {
-      rollResult = Math.floor(Math.random() * 20) + 1;
-      rollLabel = rollResult === 1 ? 'CRITICAL FAILURE' : rollResult <= 5 ? 'FAILURE' : rollResult <= 12 ? 'MIXED' : rollResult <= 19 ? 'SUCCESS' : 'CRITICAL SUCCESS';
-      this._terminalOutput(`[HACKING ROLL: ${rollResult} — ${rollLabel}]`);
-    }
-    
-    // Build context for AI - tell it to ONLY output terminal data
-    const prompt = `[TERMINAL SESSION - ${gui.title}]
+  _buildTerminalPrompt(gui, userDesc, rollText) {
+    return `[TERMINAL SESSION - ${gui.title}]
 Current terminal screen content:
 ${gui.data.lines.join('\n')}
 
-User selected: "${label}"
-${rollResult ? `Hacking roll: ${rollResult} (${rollLabel})` : ''}
+${userDesc}
+${rollText || ''}
 
 IMPORTANT: You are a TERMINAL SYSTEM. Respond ONLY with terminal output and menu options. 
 DO NOT narrate the player's actions. DO NOT describe the environment.
@@ -100,75 +72,79 @@ Your response should be structured as a terminal interface.
 
 Output format - return ONLY JSON:
 {
-  "output": ["line1", "line2"],  // New lines to append to terminal
-  "clearScreen": false,           // If true, replace existing screen content
-  "actions": [                    // New menu options (optional)
+  "output": ["line1", "line2"],
+  "clearScreen": false,
+  "actions": [
     {"label": "Option 1", "roll": null},
     {"label": "Option 2", "roll": "hacking"}
   ],
-  "prompt": ">_ ",                // New prompt text (optional)
-  "close": false,                 // If true, close the terminal
-  "creditsDelta": 0,              // Optional immediate changes
+  "prompt": ">_ ",
+  "close": false,
+  "creditsDelta": 0,
   "hpDelta": 0,
   "addItems": [],
   "removeItems": []
 }`;
+  },
+
+  _applyTerminalResponse(gui, resp) {
+    if (resp.creditsDelta) State.credits = Math.max(0, State.credits + resp.creditsDelta);
+    if (resp.hpDelta) State.hp = Math.max(0, Math.min(State.maxHp, State.hp + resp.hpDelta));
+    if (resp.addItems) {
+      resp.addItems.forEach(item => {
+        const existing = State.inventory.find(i => i.name === item.name);
+        if (existing) existing.amount += (item.amount || 1);
+        else State.inventory.push({ ...item, amount: item.amount || 1 });
+      });
+    }
+    if (resp.removeItems) {
+      resp.removeItems.forEach(item => {
+        const idx = State.inventory.findIndex(i => i.name === item.name);
+        if (idx !== -1) {
+          State.inventory[idx].amount -= (item.amount || 1);
+          if (State.inventory[idx].amount <= 0) State.inventory.splice(idx, 1);
+        }
+      });
+    }
+    if (resp.clearScreen) {
+      this._terminalOutput(resp.output || [], false);
+    } else if (resp.output) {
+      this._terminalOutput(resp.output);
+    }
+    if (resp.actions) {
+      this._terminalSetActions(gui, resp.actions, resp.prompt || gui.data.prompt);
+      gui.data.actions = resp.actions;
+      gui.data.prompt = resp.prompt || gui.data.prompt;
+    }
+    if (resp.lines) gui.data.lines = resp.lines;
+    if (resp.close) this.close();
+    if (resp.creditsDelta || resp.hpDelta || resp.addItems || resp.removeItems) {
+      Ui.updateHeader();
+      Ui.renderSidebar();
+    }
+  },
+
+  async _handleTerminalAction(gui, actionIndex) {
+    if (this.pendingAction) return;
+    this.pendingAction = true;
+
+    const action = gui.data.actions[actionIndex];
+    const label = typeof action === 'string' ? action : (action.label || action.action || `ACTION ${actionIndex}`);
+
+    this._terminalOutput(`> ${label}`);
+
+    let rollText = '';
+    if (action.roll === 'hacking') {
+      const rollResult = Math.floor(Math.random() * 20) + 1;
+      const rollLabel = rollResult === 1 ? 'CRITICAL FAILURE' : rollResult <= 5 ? 'FAILURE' : rollResult <= 12 ? 'MIXED' : rollResult <= 19 ? 'SUCCESS' : 'CRITICAL SUCCESS';
+      this._terminalOutput(`[HACKING ROLL: ${rollResult} — ${rollLabel}]`);
+      rollText = `Hacking roll: ${rollResult} (${rollLabel})`;
+    }
 
     try {
-      const raw = await queueRequest(() => callProvider([{ role: 'user', content: prompt }], 800));
+      const raw = await queueRequest(() => callProvider([{ role: 'user', content: this._buildTerminalPrompt(gui, `User selected: "${label}"`, rollText) }], 800));
       const cleaned = raw.replace(/^```json\s*/i, '').replace(/```$/g, '').trim();
-      const resp = JSON.parse(cleaned);
-      
-      // Apply any immediate state changes
-      if (resp.creditsDelta) State.credits = Math.max(0, State.credits + resp.creditsDelta);
-      if (resp.hpDelta) State.hp = Math.max(0, Math.min(State.maxHp, State.hp + resp.hpDelta));
-      if (resp.addItems) {
-        resp.addItems.forEach(item => {
-          const existing = State.inventory.find(i => i.name === item.name);
-          if (existing) existing.amount += (item.amount || 1);
-          else State.inventory.push({ ...item, amount: item.amount || 1 });
-        });
-      }
-      if (resp.removeItems) {
-        resp.removeItems.forEach(item => {
-          const idx = State.inventory.findIndex(i => i.name === item.name);
-          if (idx !== -1) {
-            State.inventory[idx].amount -= (item.amount || 1);
-            if (State.inventory[idx].amount <= 0) State.inventory.splice(idx, 1);
-          }
-        });
-      }
-      
-      // Update terminal display
-      if (resp.clearScreen) {
-        this._terminalOutput(resp.output || [], false);
-      } else if (resp.output) {
-        this._terminalOutput(resp.output);
-      }
-      
-      // Update actions if provided
-      if (resp.actions) {
-        this._terminalSetActions(gui, resp.actions, resp.prompt || gui.data.prompt);
-        gui.data.actions = resp.actions;
-        gui.data.prompt = resp.prompt || gui.data.prompt;
-      }
-      
-      // Update lines if provided
-      if (resp.lines) {
-        gui.data.lines = resp.lines;
-      }
-      
-      // Close terminal if requested
-      if (resp.close) {
-        this.close();
-      }
-      
-      // Update header/sidebar if anything changed
-      if (resp.creditsDelta || resp.hpDelta || resp.addItems || resp.removeItems) {
-        Ui.updateHeader();
-        Ui.renderSidebar();
-      }
-      
+      this._applyTerminalResponse(gui, JSON.parse(cleaned));
     } catch (err) {
       console.error('Terminal action error:', err);
       this._terminalOutput(['[ERROR: System malfunction]', '> Connection lost. Try again?']);
@@ -179,12 +155,12 @@ Output format - return ONLY JSON:
 
   _render(gui) {
     switch (gui.type) {
-      case 'terminal': return this._renderTerminal(gui);
-      case 'shop': return this._renderShop(gui);
+      case 'terminal':      return this._renderTerminal(gui);
+      case 'shop':          return this._renderShop(gui);
       case 'dialogue_tree': return this._renderDialogue(gui);
-      case 'loot': return this._renderLoot(gui);
-      case 'profile': return this._renderProfile(gui);
-      case 'chatbox': return this._renderChatbox(gui);
+      case 'loot':          return this._renderLoot(gui);
+      case 'profile':       return this._renderProfile(gui);
+      case 'chatbox':       return this._renderChatbox(gui);
       default: return `<div class="gui-panel"><div class="gui-header"><span class="gui-title">ERROR</span><button class="gui-close-btn" id="guiCloseBtn">✕</button></div><div class="gui-body-pad">Unknown GUI type: ${gui.type}</div></div>`;
     }
   },
@@ -193,97 +169,17 @@ Output format - return ONLY JSON:
     if (this.pendingAction) return;
     this.pendingAction = true;
 
-    // Show user input in terminal
     this._terminalOutput(`> ${command}`);
 
-    // No roll for typed commands; the AI can decide if a check is needed
-    const prompt = `[TERMINAL SESSION - ${gui.title}]
-  Current terminal screen content:
-  ${gui.data.lines.join('\n')}
-
-  User entered command: "${command}"
-
-  IMPORTANT: You are a TERMINAL SYSTEM. Respond ONLY with terminal output and menu options.
-  DO NOT narrate the player's actions. DO NOT describe the environment.
-  Your response should be structured as a terminal interface.
-
-  Output format - return ONLY JSON:
-  {
-    "output": ["line1", "line2"],  // New lines to append to terminal
-    "clearScreen": false,           // If true, replace existing screen content
-    "actions": [                    // New menu options (optional)
-      {"label": "Option 1", "roll": null},
-      {"label": "Option 2", "roll": "hacking"}
-    ],
-    "prompt": ">_ ",                // New prompt text (optional)
-    "close": false,                 // If true, close the terminal
-    "creditsDelta": 0,
-    "hpDelta": 0,
-    "addItems": [],
-    "removeItems": []
-  }`;
-
     try {
-      const raw = await queueRequest(() => callProvider([{ role: 'user', content: prompt }], 800));
+      const raw = await queueRequest(() => callProvider([{ role: 'user', content: this._buildTerminalPrompt(gui, `User entered command: "${command}"`) }], 800));
       const cleaned = raw.replace(/^```json\s*/i, '').replace(/```$/g, '').trim();
-      const resp = JSON.parse(cleaned);
-
-      // Apply state changes (same as in _handleTerminalAction)
-      if (resp.creditsDelta) State.credits = Math.max(0, State.credits + resp.creditsDelta);
-      if (resp.hpDelta) State.hp = Math.max(0, Math.min(State.maxHp, State.hp + resp.hpDelta));
-      if (resp.addItems) {
-        resp.addItems.forEach(item => {
-          const existing = State.inventory.find(i => i.name === item.name);
-          if (existing) existing.amount += (item.amount || 1);
-          else State.inventory.push({ ...item, amount: item.amount || 1 });
-        });
-      }
-      if (resp.removeItems) {
-        resp.removeItems.forEach(item => {
-          const idx = State.inventory.findIndex(i => i.name === item.name);
-          if (idx !== -1) {
-            State.inventory[idx].amount -= (item.amount || 1);
-            if (State.inventory[idx].amount <= 0) State.inventory.splice(idx, 1);
-          }
-        });
-      }
-
-      // Update terminal display
-      if (resp.clearScreen) {
-        this._terminalOutput(resp.output || [], false);
-      } else if (resp.output) {
-        this._terminalOutput(resp.output);
-      }
-
-      // Update actions if provided
-      if (resp.actions) {
-        this._terminalSetActions(gui, resp.actions, resp.prompt || gui.data.prompt);
-        gui.data.actions = resp.actions;
-        gui.data.prompt = resp.prompt || gui.data.prompt;
-      }
-
-      // Update lines if provided
-      if (resp.lines) {
-        gui.data.lines = resp.lines;
-      }
-
-      // Close terminal if requested
-      if (resp.close) {
-        this.close();
-      }
-
-      // Update UI if state changed
-      if (resp.creditsDelta || resp.hpDelta || resp.addItems || resp.removeItems) {
-        Ui.updateHeader();
-        Ui.renderSidebar();
-      }
-
+      this._applyTerminalResponse(gui, JSON.parse(cleaned));
     } catch (err) {
       console.error('Terminal input error:', err);
       this._terminalOutput(['[ERROR: System malfunction]', '> Connection lost. Try again?']);
     } finally {
       this.pendingAction = false;
-      // Focus input again after response
       const input = document.getElementById('guiTerminalInput');
       if (input) input.focus();
     }
@@ -324,7 +220,7 @@ Output format - return ONLY JSON:
     document.getElementById('guiCloseBtn')?.addEventListener('click', () => this.close());
 
     switch (gui.type) {
-      case 'terminal':
+      case 'terminal': {
         const actionsContainer = document.getElementById('guiTActions');
         if (actionsContainer) {
           const self = this;
@@ -332,7 +228,6 @@ Output format - return ONLY JSON:
             btn.addEventListener('click', () => self._handleTerminalAction(gui, idx));
           });
         }
-        // Bind input and send button
         const input = document.getElementById('guiTerminalInput');
         const sendBtn = document.getElementById('guiTerminalSend');
         if (input && sendBtn) {
@@ -344,24 +239,15 @@ Output format - return ONLY JSON:
             self._handleTerminalInput(gui, cmd);
           };
           sendBtn.addEventListener('click', send);
-          input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') send();
-          });
+          input.addEventListener('keydown', (e) => { if (e.key === 'Enter') send(); });
           input.focus();
         }
         break;
-      case 'shop':
-        this._bindShop(gui);
-        break;
-      case 'dialogue_tree':
-        this._bindDialogue(gui);
-        break;
-      case 'loot':
-        this._bindLoot(gui);
-        break;
-      case 'chatbox':
-        this._bindChatbox(gui);
-        break;
+      }
+      case 'shop':          this._bindShop(gui);     break;
+      case 'dialogue_tree': this._bindDialogue(gui); break;
+      case 'loot':          this._bindLoot(gui);     break;
+      case 'chatbox':       this._bindChatbox(gui);  break;
     }
   },
 
@@ -380,7 +266,7 @@ Output format - return ONLY JSON:
         Ui.addInstant(`[ BOUGHT: ${item.name} for ₵${item.price} ]`, 'system');
         Ui.updateHeader();
         Ui.renderSidebar();
-        self.show(gui); // Refresh
+        self.show(gui);
       });
     });
   },
@@ -392,16 +278,16 @@ Output format - return ONLY JSON:
         const roll = opt.roll ? Math.floor(Math.random() * 20) + 1 : null;
         const rollLabel = roll ? (roll === 1 ? 'CRITICAL FAILURE' : roll <= 5 ? 'FAILURE' : roll <= 12 ? 'MIXED' : roll <= 19 ? 'SUCCESS' : 'CRITICAL SUCCESS') : '';
         const rollText = roll ? ` [ROLL: d20=${roll} — ${rollLabel}]` : '';
-        
+
         this.close();
         Ui.setInputLocked(true);
-        
+
         const resp = await Llm.send(`[DIALOGUE — ${gui.data.speaker || 'NPC'}] Player chose: "${opt.label}"${rollText}`);
         Engine.applyResponse(resp);
         if (resp.narration) Ui.enqueue(resp.narration, 'narrator');
         if (resp.gui) setTimeout(() => GuiEngine.show(resp.gui), 500);
-        
-        const wq = () => { if (Ui.isTyping || Ui.typeQueue.length) setTimeout(wq, 200); else { Ui.setInputLocked(false); Ui.updateHeader(); Ui.renderSidebar(); }};
+
+        const wq = () => { if (Ui.isTyping || Ui.typeQueue.length) setTimeout(wq, 200); else { Ui.setInputLocked(false); Ui.updateHeader(); Ui.renderSidebar(); } };
         wq();
       });
     });
@@ -435,7 +321,7 @@ Output format - return ONLY JSON:
     document.querySelectorAll('.gui-loot-take').forEach(btn => {
       btn.addEventListener('click', () => takeItem(parseInt(btn.dataset.index)));
     });
-    
+
     document.getElementById('guiTakeAll')?.addEventListener('click', () => {
       const names = d.items.map(i => i.name);
       d.items.forEach(item => {
@@ -525,21 +411,15 @@ Output format - return ONLY JSON:
 
   _renderChatbox(gui) {
     const d = gui.data;
-    // Ensure participants exist; if not, create them
     let participants = d.participants || [];
-    // Make sure the player is in the participant list
-    const deviceOwner = d.deviceOwner || State.playerName || 'You';
     const playerName = State.playerName || 'You';
     if (!participants.some(p => p.name === playerName)) {
       participants.unshift({ name: playerName, side: 'right', color: 'var(--green)' });
     }
-    // For simplicity, only show one NPC (the first non-player participant)
     const npc = participants.find(p => p.name !== playerName);
     const npcName = npc?.name || 'NPC';
 
-    // Render messages without timestamps for clarity
     const messages = (d.messages || []).map(msg => {
-      // Normalize speaker name: if it's "Player", replace with actual player name
       let speaker = msg.speaker;
       if (speaker === 'Player') speaker = playerName;
       const isPlayer = speaker === playerName;
@@ -605,7 +485,6 @@ Output format - return ONLY JSON:
   _renderLoot(gui) {
     const d = gui.data;
     const itemsHtml = this._lootItemsHtml(d.items || []);
-    
     return `<div class="gui-panel gui-loot">
       <div class="gui-header">
         <span class="gui-title">${gui.title || 'LOOT'}</span>
@@ -637,7 +516,6 @@ Output format - return ONLY JSON:
     const deviceOwner = State.playerName || 'You';
     gui.data.deviceOwner = deviceOwner;
 
-    // Determine contact (the NPC)
     let contact = gui.data.contact;
     if (!contact) {
       const participants = gui.data.participants || [];
@@ -648,34 +526,21 @@ Output format - return ONLY JSON:
       gui.data.contact = contact;
     }
 
-    // Fetch NPC stats if available (e.g., agility)
     let npc = State.npcs.find(n => n.name === contact.name);
     let agility = npc?.stats?.agi ?? null;
 
-    // Default WPM range (40-52) for average
-    const defaultMinWpm = 40;
-    const defaultMaxWpm = 52;
-
-    // Function to get typing delay based on message length and agility
     const getTypingDelay = (message, agility) => {
       const wordCount = message.split(/\s+/).filter(w => w.length > 0).length;
-      if (wordCount === 0) return 200; // minimum delay
-
+      if (wordCount === 0) return 200;
       let wpm;
       if (agility !== null && typeof agility === 'number') {
-        // Map agility to WPM: agility 1 -> 20 WPM, agility 20 -> 100 WPM
         wpm = Math.min(100, Math.max(20, 20 + agility * 4));
       } else {
-        // Random between 40 and 52
-        wpm = Math.floor(Math.random() * (defaultMaxWpm - defaultMinWpm + 1) + defaultMinWpm);
+        wpm = Math.floor(Math.random() * 13 + 40);
       }
-
-      const seconds = wordCount / (wpm / 60);
-      const delay = Math.min(5000, Math.max(200, seconds * 1000)); // clamp between 200ms and 5s
-      return delay;
+      return Math.min(5000, Math.max(200, (wordCount / (wpm / 60)) * 1000));
     };
 
-    // Helper to show typing indicator (three bouncing dots)
     const showTypingIndicator = () => {
       const container = document.getElementById('guiChatMessages');
       if (!container) return;
@@ -686,8 +551,7 @@ Output format - return ONLY JSON:
         <span class="gui-chat-speaker" style="color:${contact.color}">${contact.name}</span>
         <div class="gui-chat-bubble typing-bubble">
           <span class="dot"></span><span class="dot"></span><span class="dot"></span>
-        </div>
-      `;
+        </div>`;
       container.appendChild(indicator);
       container.scrollTop = container.scrollHeight;
     };
@@ -721,43 +585,35 @@ Output format - return ONLY JSON:
       const text = input.value.trim();
       if (!text) return;
       input.value = '';
-
-      // Add user message
       gui.data.messages.push({ speaker: deviceOwner, text, timestamp: null });
       refreshUI();
-
       input.disabled = true;
       sendBtn.disabled = true;
-
-      // Show typing indicator
       showTypingIndicator();
 
-      // Build conversation history (last 10 messages)
       const historyMessages = gui.data.messages.slice(-10).map(msg => {
         let speaker = msg.speaker;
         if (speaker === 'Player') speaker = deviceOwner;
         return `${speaker}: ${msg.text}`;
       }).join('\n');
 
-      // Prompt AI with full context
       const prompt = `[CHATBOX — ${gui.title}]
 
-    Conversation so far:
-    ${historyMessages}
+Conversation so far:
+${historyMessages}
 
-    ${deviceOwner} just said: "${text}"
+${deviceOwner} just said: "${text}"
 
-    Reply as ${contact.name} in character. Use the conversation history to respond appropriately. Output ONLY the reply text, with no names, no prefixes, no extra formatting. Just the message itself.`;
+Reply as ${contact.name} in character. Use the conversation history to respond appropriately. Output ONLY the reply text, with no names, no prefixes, no extra formatting. Just the message itself.`;
 
       let replyRaw = '';
       try {
         replyRaw = await queueRequest(() => callProvider([{ role: 'user', content: prompt }], 300));
       } catch (err) {
         console.error('Chat error:', err);
-        replyRaw = "[...]";
+        replyRaw = '[...]';
       }
 
-      // Clean the raw reply (same as before)
       const lines = replyRaw.split(/\r?\n/);
       const cleanedLines = [];
       for (let line of lines) {
@@ -770,9 +626,8 @@ Output format - return ONLY JSON:
         cleanedLines.push(line);
       }
       let finalReply = cleanedLines.join(' ').trim();
-      if (!finalReply) finalReply = "[...]";
+      if (!finalReply) finalReply = '[...]';
 
-      const delay = getTypingDelay(finalReply, agility);
       setTimeout(() => {
         hideTypingIndicator();
         gui.data.messages.push({ speaker: contact.name, text: finalReply, timestamp: null });
@@ -780,7 +635,7 @@ Output format - return ONLY JSON:
         input.disabled = false;
         sendBtn.disabled = false;
         input.focus();
-      }, delay);
+      }, getTypingDelay(finalReply, agility));
     };
 
     sendBtn.addEventListener('click', send);
