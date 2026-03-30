@@ -557,15 +557,19 @@ One terse, visceral sentence. No numbers, no mechanics. Reply only: {"narration"
     }
 
     let finalDmg = dmg;
-    let reflected = false;
-    if (target.reflectPercent > 0 && dmg > 0) {
-      const reflectDmg = Math.floor(dmg * target.reflectPercent / 100);
-      if (reflectDmg > 0) {
-        EffectEngine.execute(c.playerObj, { type: 'damage', value: reflectDmg, target: 'self' }, `${target.name}'s reflection`);
-        reflected = true;
+    const damageType = skill.damageType || 'physical';
+    if (target.immunities && target.immunities.some(imm => imm.type === 'all' || imm.type === damageType)) {
+      CombatEngine.clog(`${target.name} is immune to ${damageType} damage!`, 'cl-status');
+      finalDmg = 0;
+    } else {
+      // reflect logic
+      if (target.reflectPercent > 0 && dmg > 0) {
+        const reflectDmg = Math.floor(dmg * target.reflectPercent / 100);
+        if (reflectDmg > 0) {
+          EffectEngine.execute(c.playerObj, { type: 'damage', value: reflectDmg, target: 'self' }, `${target.name}'s reflection`);
+        }
       }
     }
-
     if (finalDmg > 0) {
       target.hp = Math.max(0, target.hp - finalDmg);
       if (target.id === 'player') State.hp = target.hp;
@@ -624,6 +628,8 @@ One terse, visceral sentence. No numbers, no mechanics. Reply only: {"narration"
             if (dotEffect) {
               dotEffect.duration = Math.max(dotEffect.duration, eff.duration);
               dotEffect.value = Math.max(dotEffect.value, eff.value);
+              // also update damageType if provided
+              if (eff.damageType) dotEffect.damageType = eff.damageType;
             } else {
               target.statusEffects.push({
                 name: eff.name,
@@ -631,10 +637,10 @@ One terse, visceral sentence. No numbers, no mechanics. Reply only: {"narration"
                 duration: eff.duration,
                 value: eff.value,
                 icon: eff.icon,
-                description: `${eff.value} damage per turn.`
+                description: `${eff.value} damage per turn.`,
+                damageType: eff.damageType || 'poison', // capture damage type
               });
             }
-            this.clog(`${target.name} is afflicted with ${eff.name} for ${eff.duration} turns!`, 'cl-status');
           }
           else if (eff.type === 'expose') {
             const exposeEffect = target.statusEffects.find(e => e.type === 'expose');
@@ -758,6 +764,13 @@ One terse, visceral sentence. No numbers, no mechanics. Reply only: {"narration"
       return;
     }
 
+    const damageType = skill.damageType || 'physical';
+      if (target.immunities && target.immunities.some(imm => imm.type === 'all' || imm.type === damageType)) {
+        CombatEngine.clog(`${target.name} is immune to ${damageType} damage!`, 'cl-status');
+        this._nextTurn();
+        return;
+      }
+
     if (dmg > 0 && target) {
       let finalDmg = dmg;
       if (target.reflectPercent > 0) {
@@ -866,15 +879,17 @@ One terse, visceral sentence. No numbers, no mechanics. Reply only: {"narration"
       for (let i = 0; i < combatant.statusEffects.length; i++) {
         const sf = combatant.statusEffects[i];
         if (sf.type === 'dot') {
-          const dmg = sf.value || 5;
+        const dmg = sf.value || 5;
+        const damageType = sf.damageType || 'poison'; // default to poison if not set
+        // Check immunity
+        if (combatant.immunities && combatant.immunities.some(imm => imm.type === 'all' || imm.type === damageType)) {
+          CombatEngine.clog(`${combatant.name} is immune to ${damageType} damage from ${sf.name}!`, 'cl-status');
+        } else {
           combatant.hp = Math.max(0, combatant.hp - dmg);
           if (combatant.id === 'player') State.hp = combatant.hp;
-          this.clog(`${sf.name}: ${combatant.name} -${dmg} HP`, 'cl-status');
-        } else if (sf.type === 'buff_hp' && combatant.id === 'player') {
-          State.hp = Math.min(State.maxHp, State.hp + sf.value);
-          combatant.hp = State.hp;
-          this.clog(`${sf.name}: +${sf.value} HP`, 'cl-status');
+          CombatEngine.clog(`${sf.name}: ${combatant.name} -${dmg} HP`, 'cl-status');
         }
+      }
         
         // Skip effects are decremented during turn checks, not at end of round
         if (sf.type === 'skip') {

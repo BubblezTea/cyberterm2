@@ -13,7 +13,7 @@ function statBar(label, val, colorClass) {
   </div>`;
 }
 
-const TRAGEDIES = [
+const TRAGEDIES_CYBERPUNK = [
   {
     id: 'violence', name: 'VIOLENCE',
     desc: 'Someone put a bullet in someone you loved. You watched them fall. You never saw the shooter\'s face.',
@@ -44,44 +44,406 @@ const TRAGEDIES = [
   },
 ];
 
-const UPBRINGINGS = [
+const TRAGEDIES_FANTASY = [
+  {
+    id: 'curse', name: 'CURSE',
+    desc: 'A dark ritual left you marked by the demon\'s corruption. You saw them twist into monsters before your eyes.',
+    effect: 'The corruption left you resilient. +2 END.',
+    statBonus: { end:2 },
+    startItem: { name:'Corrupted Talisman', amount:1, description:'The amulet of the one who performed the ritual. It hums with dark energy.', unsellable:true, slot:null, statBonus:null },
+  },
+  {
+    id: 'sacrifice', name: 'SACRIFICE',
+    desc: 'Your village was destroyed to fuel a demonic summoning. You were the only one who escaped the flames.',
+    effect: 'The survivors\' rage burns in you. +2 STR.',
+    statBonus: { str:2 },
+    startItem: { name:'Charred Locket', amount:1, description:'A melted keepsake from the pyre. Still warm to the touch.', unsellable:true, slot:null, statBonus:null },
+  },
+  {
+    id: 'hunted', name: 'HUNTED',
+    desc: 'You were chosen for a blood hunt. They killed everyone who tried to protect you. You survived by running.',
+    effect: 'Fear made you swift. +2 AGI.',
+    statBonus: { agi:2 },
+    startItem: { name:'Bloodstained Scarf', amount:1, description:'A scrap from the one who saved you. Their last gift.', unsellable:true, slot:null, statBonus:null },
+  },
+  {
+    id: 'abandoned', name: 'ABANDONED',
+    desc: 'The gods turned their backs when you needed them most. Your prayers went unanswered as your loved ones fell.',
+    effect: 'You learned to rely only on yourself. +2 INT.',
+    statBonus: { int:2 },
+    startItem: { name:'Broken Icon', amount:1, description:'A shattered symbol of the faith that failed you.', unsellable:true, slot:null, statBonus:null },
+  },
+];
+
+// ========== UPBRINGINGS (Cyberpunk) ==========
+const UPBRINGINGS_CYBERPUNK = [
   {
     id: 'fixer', name: "FIXER'S WARD", desc: 'A street fixer sees something in you and takes you under their wing.',
     outcomes: {
-      critFail:    "The fixer used you and cut you loose the moment you weren't useful. The lesson stuck.",
-      bad:         "The fixer burns in a housefire two years later. You inherit their debts and their ghosts.",
-      good:        "When the fixer retires, they hand you their contact list. It's worth more than money.",
-      critSuccess: "Turns out the fixer was a legend in the shadows. You learned from the best — and they left you everything.",
-    },
+      critFail: {
+        narrative: "The fixer used you and cut you loose the moment you weren't useful. The lesson stuck.",
+        statBonus: { agi: 1, cha: -1 },
+        creditsDelta: -50,
+        addItems: [{ name: "Debt Marker", amount: 1, description: "You owe the fixer. They'll collect someday.", unsellable: true }],
+        npcUpdates: [{ name: "The Fixer", relationship: "Hostile", description: "The one who used you and cut you loose." }]
+      },
+      bad: {
+        narrative: "The fixer burns in a housefire two years later. You inherit their debts and their ghosts.",
+        statBonus: { int: 1, cha: -1 },
+        creditsDelta: -100,
+        addItems: [{ name: "Fixer's Last Job File", amount: 1, description: "A datachip with unfinished business. Someone might pay for it.", unsellable: true }],
+        npcUpdates: [{ name: "The Fixer", relationship: "Dead", description: "Died in a fire. You inherited their debts." }]
+      },
+      good: {
+        narrative: "When the fixer retires, they hand you their contact list. It's worth more than money.",
+        statBonus: { cha: 2 },
+        creditsDelta: 200,
+        addItems: [{ name: "Fixer's Contact List", amount: 1, description: "Names and numbers of people who can get things done." }],
+        npcUpdates: [{ name: "The Fixer", relationship: "Ally", description: "Retired but still watches your back." }]
+      },
+      critSuccess: {
+        narrative: "Turns out the fixer was a legend in the shadows. You learned from the best — and they left you everything.",
+        statBonus: { cha: 2, int: 1, tec: 1 },
+        creditsDelta: 500,
+        addItems: [
+          { name: "Fixer's Toolkit", amount: 1, description: "Lockpicks, scramblers, and a small arsenal.", slot: "hands", statBonus: { tec: 1 } },
+          { name: "Legend's Data Fortress Access", amount: 1, description: "A backdoor into several corporate systems.", unsellable: true }
+        ],
+        npcUpdates: [{ name: "The Fixer", relationship: "Ally", description: "Your mentor. They trust you with their legacy." }],
+        skill: { name: "Backroom Deal", description: "Find black market connections.", damage: null, energyCost: 0, cooldown: 0, statScaling: "cha" }
+      }
+    }
   },
   {
     id: 'gang', name: 'GANG COLORS', desc: 'A local crew gives you an identity when you had nothing else.',
     outcomes: {
-      critFail:    "A sting operation rolls up the whole crew. You barely walk. They blame you for it.",
-      bad:         "A rival gang wipes out your crew. You're the only one who makes it out. Nobody's sure if that makes you lucky.",
-      good:        "The crew eats the heat on something big and you walk clean. You still owe them — and they know it.",
-      critSuccess: "Your crew becomes the most feared in the district. You earn a name that still opens doors.",
-    },
+      critFail: {
+        narrative: "A sting operation rolls up the whole crew. You barely walk. They blame you for it.",
+        statBonus: { agi: 1, cha: -2 },
+        creditsDelta: -50,
+        npcUpdates: [{ name: "Gang", relationship: "Hostile", description: "They think you sold them out." }]
+      },
+      bad: {
+        narrative: "A rival gang wipes out your crew. You're the only one who makes it out. Nobody's sure if that makes you lucky.",
+        statBonus: { str: 1, agi: 1, cha: -1 },
+        creditsDelta: -100,
+        addItems: [{ name: "Faded Gang Tag", amount: 1, description: "A reminder of who you lost." }],
+        npcUpdates: [{ name: "Gang", relationship: "Dead", description: "Wiped out by rivals." }]
+      },
+      good: {
+        narrative: "The crew eats the heat on something big and you walk clean. You still owe them — and they know it.",
+        statBonus: { cha: 1, str: 1 },
+        creditsDelta: 150,
+        addItems: [{ name: "Gang Marker", amount: 1, description: "A token that says you're under their protection." }],
+        npcUpdates: [{ name: "Gang", relationship: "Friendly", description: "You owe them, but they've got your back." }]
+      },
+      critSuccess: {
+        narrative: "Your crew becomes the most feared in the district. You earn a name that still opens doors.",
+        statBonus: { str: 2, agi: 1, cha: 1 },
+        creditsDelta: 300,
+        addItems: [
+          { name: "Gang Leader's Jacket", amount: 1, description: "A symbol of respect. Even cops think twice.", slot: "body", statBonus: { cha: 1 } }
+        ],
+        npcUpdates: [{ name: "Gang", relationship: "Ally", description: "You're a legend among them." }],
+        skill: { name: "Gang Rally", description: "Call in backup from your crew.", damage: null, energyCost: 5, cooldown: 2 }
+      }
+    }
   },
   {
     id: 'corp', name: 'CORP PROPERTY', desc: 'A megacorp social program pulls you off the street.',
     outcomes: {
-      critFail:    "You were used as a test subject. The experiments left marks you can't explain and scars you don't show.",
-      bad:         "The program gets cancelled. You're processed out with a tracker in your neck and debt you never signed.",
-      good:        "You learn the corp's language before you bolt. That knowledge is worth more than they ever paid you.",
-      critSuccess: "Before you vanish you find dirt on a mid-level exec. Insurance for life — if you play it right.",
-    },
+      critFail: {
+        narrative: "You were used as a test subject. The experiments left marks you can't explain and scars you don't show.",
+        statBonus: { int: 1, tec: 1, end: -1 },
+        creditsDelta: 0,
+        addItems: [{ name: "Experimental Implant Scar", amount: 1, description: "Something was put in you. You don't know what.", unsellable: true }],
+        npcUpdates: [{ name: "Corp Doctor", relationship: "Hostile", description: "The one who operated on you." }]
+      },
+      bad: {
+        narrative: "The program gets cancelled. You're processed out with a tracker in your neck and debt you never signed.",
+        statBonus: { int: 1, cha: -1 },
+        creditsDelta: -200,
+        addItems: [{ name: "Neck Tracker", amount: 1, description: "A locator chip. You haven't found a way to remove it.", unsellable: true }],
+        npcUpdates: [{ name: "Corp Handler", relationship: "Neutral", description: "Your former handler. They might help if you pay." }]
+      },
+      good: {
+        narrative: "You learn the corp's language before you bolt. That knowledge is worth more than they ever paid you.",
+        statBonus: { int: 2, tec: 1 },
+        creditsDelta: 300,
+        addItems: [{ name: "Corp Database Dump", amount: 1, description: "Stolen files that could be leveraged." }],
+        npcUpdates: [{ name: "Corp Handler", relationship: "Suspicious", description: "They're not sure where you stand." }]
+      },
+      critSuccess: {
+        narrative: "Before you vanish you find dirt on a mid-level exec. Insurance for life — if you play it right.",
+        statBonus: { int: 2, cha: 2 },
+        creditsDelta: 500,
+        addItems: [{ name: "Exec's Dirt File", amount: 1, description: "Blackmail material on someone powerful.", unsellable: true }],
+        npcUpdates: [{ name: "Exec", relationship: "Ally", description: "You have something on them. They'll help... for now." }],
+        skill: { name: "Corp Intrigue", description: "Navigate corporate politics.", damage: null, energyCost: 0, cooldown: 0, statScaling: "cha" }
+      }
+    }
   },
   {
     id: 'lone', name: 'LONE DOG', desc: 'Nobody came. You figured it out by yourself.',
     outcomes: {
-      critFail:    "The streets hollowed you out. When you finally surfaced, something was missing. You haven't found it since.",
-      bad:         "The isolation carved you cold. You survive. But trust is a word you stopped using a long time ago.",
-      good:        "The city taught you to move like water. You know every shadow, every back alley, every exit.",
-      critSuccess: "You became a ghost. Nobody knows your face. Nobody knows your name. That's exactly how you want it.",
-    },
-  },
+      critFail: {
+        narrative: "The streets hollowed you out. When you finally surfaced, something was missing. You haven't found it since.",
+        statBonus: { agi: 1, int: 1, cha: -2 },
+        creditsDelta: 0,
+        addItems: [],
+        npcUpdates: []
+      },
+      bad: {
+        narrative: "The isolation carved you cold. You survive. But trust is a word you stopped using a long time ago.",
+        statBonus: { agi: 2, cha: -2 },
+        creditsDelta: 50,
+        addItems: [{ name: "Rusty Knife", amount: 1, description: "Your only companion." }],
+        npcUpdates: []
+      },
+      good: {
+        narrative: "The city taught you to move like water. You know every shadow, every back alley, every exit.",
+        statBonus: { agi: 2, int: 1 },
+        creditsDelta: 150,
+        addItems: [{ name: "City Map", amount: 1, description: "Hand-drawn routes, safe houses, and emergency stashes." }],
+        npcUpdates: []
+      },
+      critSuccess: {
+        narrative: "You became a ghost. Nobody knows your face. Nobody knows your name. That's exactly how you want it.",
+        statBonus: { agi: 2, int: 2, cha: -1 },
+        creditsDelta: 400,
+        addItems: [
+          { name: "Ghost Kit", amount: 1, description: "Tools to stay untraceable.", slot: "hands", statBonus: { agi: 1 } }
+        ],
+        skill: { name: "Vanishing Act", description: "Disappear from sight.", damage: null, energyCost: 10, cooldown: 3 }
+      }
+    }
+  }
 ];
+
+// ========== UPBRINGINGS (Fantasy) ==========
+const UPBRINGINGS_FANTASY = [
+  {
+    id: 'sage', name: "WISE SAGE", desc: 'A reclusive sage took you in and taught you the old ways.',
+    outcomes: {
+      critFail: {
+        narrative: "The sage was secretly a cultist. You escaped, but not before being marked by dark rituals.",
+        statBonus: { int: -1, cha: -1 },
+        creditsDelta: -50,
+        addItems: [{ name: "Cultist Brand", amount: 1, description: "A mark that can't be washed away. Some might recognize it.", unsellable: true }],
+        npcUpdates: [{ name: "The Sage", relationship: "Hostile", description: "A secret cultist who tried to sacrifice you." }],
+        trait: "Marked by Darkness||You carry a curse that some can sense.||-1 CHA when dealing with clergy."
+      },
+      bad: {
+        narrative: "Bandits raided the sage's tower. You fled with only a few scrolls and a curse you can't shake.",
+        statBonus: { int: 1, agi: 1 },
+        creditsDelta: -100,
+        addItems: [{ name: "Torn Spellscroll", amount: 1, description: "A fragment of a spell. Might be valuable." }],
+        npcUpdates: [{ name: "The Sage", relationship: "Unknown", description: "Missing after the raid. Their fate unknown." }]
+      },
+      good: {
+        narrative: "The sage passed on their knowledge before disappearing. You carry their wisdom and a few enchanted trinkets.",
+        statBonus: { int: 2, cha: 1 },
+        creditsDelta: 150,
+        addItems: [{ name: "Sage's Ring", amount: 1, description: "A simple silver band that glows faintly.", slot: "hands", statBonus: { int: 1 } }],
+        npcUpdates: [{ name: "The Sage", relationship: "Ally", description: "Your mentor. They disappeared, but left you their legacy." }],
+        skill: { name: "Arcane Lore", description: "Identify magical items and decipher ancient texts.", damage: null, energyCost: 0, cooldown: 0, statScaling: "int" }
+      },
+      critSuccess: {
+        narrative: "The sage was a legendary archmage in hiding. Their final gift was a grimoire of forgotten spells.",
+        statBonus: { int: 2, cha: 1, end: 1 },
+        creditsDelta: 400,
+        addItems: [
+          { name: "Grimoire of Forgotten Spells", amount: 1, description: "Bound in dragonhide. Contains spells lost for centuries.", unsellable: true }
+        ],
+        npcUpdates: [{ name: "The Sage", relationship: "Ally", description: "A legendary archmage. They vanished, trusting you with their greatest work." }],
+        skill: { name: "Forgotten Magic", description: "Cast a powerful spell from the grimoire.", damage: [15, 25], energyCost: 20, cooldown: 3, statScaling: "int" }
+      }
+    }
+  },
+  {
+    id: 'noble', name: "NOBLE HOUSE", desc: 'A minor noble house took you in as a ward, giving you education and standing.',
+    outcomes: {
+      critFail: {
+        narrative: "You were framed for a crime you didn't commit and cast out. Your name is now a curse among the nobility.",
+        statBonus: { cha: -2, int: 1 },
+        creditsDelta: -150,
+        addItems: [{ name: "Disgraced Crest", amount: 1, description: "Your family's symbol, now a mark of shame.", unsellable: true }],
+        npcUpdates: [{ name: "Noble House", relationship: "Hostile", description: "They believe you betrayed them." }]
+      },
+      bad: {
+        narrative: "Your house fell to a rival's machinations. You escaped with nothing but your wits and a burning desire for revenge.",
+        statBonus: { int: 1, agi: 1, cha: -1 },
+        creditsDelta: -50,
+        addItems: [{ name: "House Signet Ring", amount: 1, description: "Your family's ring. Proof of your lineage, if anyone still cares." }],
+        npcUpdates: [{ name: "Noble House", relationship: "Dead", description: "Destroyed by rivals." }]
+      },
+      good: {
+        narrative: "You learned courtly arts and diplomacy. The connections you made still open doors, even if you left that life behind.",
+        statBonus: { cha: 2, int: 1 },
+        creditsDelta: 200,
+        addItems: [{ name: "Diplomat's Pendant", amount: 1, description: "A token of favor from a powerful lord.", slot: "body", statBonus: { cha: 1 } }],
+        npcUpdates: [{ name: "Noble House", relationship: "Friendly", description: "They remember your family fondly." }]
+      },
+      critSuccess: {
+        narrative: "You discovered a dark secret about a powerful family. They've bought your silence with gold and favors you still hold.",
+        statBonus: { cha: 2, int: 2 },
+        creditsDelta: 500,
+        addItems: [{ name: "Dark Secret Dossier", amount: 1, description: "Proof of a great family's hidden shame.", unsellable: true }],
+        npcUpdates: [{ name: "Powerful Family", relationship: "Ally", description: "They pay you to keep their secret." }],
+        skill: { name: "Courtly Intrigue", description: "Manipulate nobles and navigate politics.", damage: null, energyCost: 0, cooldown: 0, statScaling: "cha" }
+      }
+    }
+  },
+  {
+    id: 'guild', name: "THIEVES' GUILD", desc: 'You were taken in by a guild of shadows. They taught you to survive in the cracks of society.',
+    outcomes: {
+      critFail: {
+        narrative: "A job went wrong. You were the only one caught. The guild left you to rot, and now the guard knows your face.",
+        statBonus: { agi: 1, cha: -2 },
+        creditsDelta: -100,
+        addItems: [{ name: "Wanted Poster", amount: 1, description: "Your face, with a reward.", unsellable: true }],
+        npcUpdates: [{ name: "Guild", relationship: "Hostile", description: "They abandoned you to save themselves." }]
+      },
+      bad: {
+        narrative: "The guild was betrayed from within. You fled with a stolen relic and a price on your head.",
+        statBonus: { agi: 2, cha: -1 },
+        creditsDelta: -50,
+        addItems: [{ name: "Stolen Relic", amount: 1, description: "A small idol. Powerful people want it back.", unsellable: true }],
+        npcUpdates: [{ name: "Guild", relationship: "Dead", description: "Destroyed by internal betrayal." }]
+      },
+      good: {
+        narrative: "You earned a reputation as a reliable shadow. The guild's contacts still remember you fondly.",
+        statBonus: { agi: 2, cha: 1 },
+        creditsDelta: 200,
+        addItems: [{ name: "Guild Token", amount: 1, description: "A sign that you're a trusted freelancer." }],
+        npcUpdates: [{ name: "Guild", relationship: "Friendly", description: "They'd welcome you back." }]
+      },
+      critSuccess: {
+        narrative: "You pulled off the heist of the decade. Your name is whispered in thieves' dens, and a cache of riches awaits.",
+        statBonus: { agi: 2, int: 1, cha: 1 },
+        creditsDelta: 500,
+        addItems: [{ name: "Master Thief's Tools", amount: 1, description: "The finest lockpicks and climbing gear.", slot: "hands", statBonus: { agi: 1 } }],
+        npcUpdates: [{ name: "Guild", relationship: "Ally", description: "You're a legend among thieves." }],
+        skill: { name: "Impossible Heist", description: "Bypass almost any security.", damage: null, energyCost: 15, cooldown: 3 }
+      }
+    }
+  },
+  {
+    id: 'wild', name: "WILDLING", desc: 'You grew up in the untamed wilderness, surviving by your own instincts.',
+    outcomes: {
+      critFail: {
+        narrative: "A beast claimed your home. You barely escaped with your life, carrying only scars and nightmares.",
+        statBonus: { agi: 1, end: -1 },
+        creditsDelta: 0,
+        addItems: [{ name: "Claw Scar", amount: 1, description: "A deep gash that never fully healed.", unsellable: true }],
+        npcUpdates: []
+      },
+      bad: {
+        narrative: "The wilds nearly broke you. You survive, but you've lost something — the ability to trust, to hope.",
+        statBonus: { str: 1, end: 1, cha: -2 },
+        creditsDelta: 50,
+        addItems: [{ name: "Survival Knife", amount: 1, description: "Worn from years of use." }],
+        npcUpdates: []
+      },
+      good: {
+        narrative: "You learned the secrets of the forest. Animals heed you, and the wild itself seems to offer shelter.",
+        statBonus: { agi: 1, end: 1, cha: 1 },
+        creditsDelta: 100,
+        addItems: [{ name: "Whistle of the Wild", amount: 1, description: "A small horn that calls friendly beasts." }],
+        npcUpdates: []
+      },
+      critSuccess: {
+        narrative: "You found the hidden grove of an ancient spirit. It blessed you with a gift of nature that few possess.",
+        statBonus: { agi: 1, end: 2, cha: 1 },
+        creditsDelta: 300,
+        addItems: [{ name: "Spirit's Token", amount: 1, description: "A small wooden charm that glows with inner light.", slot: "body", statBonus: { end: 1 } }],
+        skill: { name: "Nature's Blessing", description: "Call upon the land to heal or hinder.", damage: null, energyCost: 10, cooldown: 2, statusEffect: { name: "Nature's Grace", type: "buff_hp", duration: 1, value: 20 } }
+      }
+    }
+  }
+];
+
+function getCurrentUpbringings() {
+  const theme = Theme.current;
+  return theme === 'fantasy' ? UPBRINGINGS_FANTASY : UPBRINGINGS_CYBERPUNK;
+}
+
+function getCurrentTragedies() {
+  return Theme.current === 'fantasy' ? TRAGEDIES_FANTASY : TRAGEDIES_CYBERPUNK;
+}
+
+function applyUpbringingOutcome(upbringing, roll) {
+  let outcomeKey;
+  if (roll <= 3) outcomeKey = 'critFail';
+  else if (roll <= 8) outcomeKey = 'bad';
+  else if (roll <= 15) outcomeKey = 'good';
+  else outcomeKey = 'critSuccess';
+
+  const outcome = upbringing.outcomes[outcomeKey];
+  
+  // Apply stat bonuses
+  if (outcome.statBonus) {
+    Object.entries(outcome.statBonus).forEach(([stat, delta]) => {
+      if (State.stats[stat] !== undefined) {
+        State.stats[stat] = Math.max(1, Math.min(100, State.stats[stat] + delta));
+      }
+    });
+  }
+  
+  // Apply credits delta
+  if (outcome.creditsDelta) {
+    State.credits = Math.max(0, State.credits + outcome.creditsDelta);
+  }
+  
+  // Add items
+  if (outcome.addItems && outcome.addItems.length) {
+    outcome.addItems.forEach(item => {
+      const existing = State.inventory.find(i => i.name === item.name);
+      if (existing) {
+        existing.amount += (item.amount || 1);
+      } else {
+        State.inventory.push(item);
+      }
+    });
+  }
+  
+  // Update NPCs
+  if (outcome.npcUpdates && outcome.npcUpdates.length) {
+    outcome.npcUpdates.forEach(update => {
+      const existing = State.npcs.find(n => n.name === update.name);
+      if (existing) {
+        existing.relationship = update.relationship;
+        if (update.description) existing.description = update.description;
+      } else {
+        State.npcs.push({
+          name: update.name,
+          relationship: update.relationship,
+          description: update.description || `Connected to your upbringing.`
+        });
+      }
+    });
+  }
+  
+  // Add trait (only if provided)
+  if (outcome.trait) {
+    const parts = outcome.trait.split('||');
+    State.traits.push({
+      name: parts[0],
+      description: parts[1] || outcome.trait,
+      effect: parts[2] || ''
+    });
+  }
+  
+  // Add skill (only if provided)
+  if (outcome.skill) {
+    const exists = State.skills.find(s => s.name === outcome.skill.name);
+    if (!exists) {
+      State.skills.push(outcome.skill);
+    }
+  }
+  
+  return outcome.narrative;
+}
 
 function initCharCreate() {
   ccBackstoryNpcs = [];
@@ -115,11 +477,7 @@ async function handleStep1() {
 }
 
 async function fetchLocationOptions() {
-  const prompt = `Generate exactly 4 gritty cyberpunk DISTRICT names within a single megacity.
-Player name is "${State.playerName}". Let this name influence the district names (e.g., if the name sounds sharp, maybe districts have sharper names; if it's mysterious, make them enigmatic).
-Each name must be 2-4 words, evocative, and NOT include any of these: "Ironhaven", "Shadowbrook", "The Pit", "Darkside Towers", "Rust Alley", "Neon Heights", "Sub-Level 6", "The Sprawl".
-Make them completely new and varied. Avoid industrial themes for all of them.
-Respond only with a valid JSON array of strings. No markdown, no commentary.`;
+  const prompt = Prompts.getLocationPrompt(State.playerName);
   try {
     const raw = await queueRequest(() => callProvider([{ role: 'user', content: prompt }], 300));
     let cleaned = raw.replace(/^```json\s*/i, '').replace(/```$/g, '').trim();
@@ -151,11 +509,7 @@ async function showLocationChoices() {
 
     for (const loc of locations) {
       try {
-        const descPrompt = `Describe ${loc} as a district within a cyberpunk megacity in one sentence. 
-Player name is "${State.playerName}". Let the name's vibe subtly influence the description.
-Focus on one distinctive, unusual feature that sets it apart from typical industrial zones. 
-Be specific—mention architecture, smell, sound, or a unique landmark. 
-Only the description, no extra text.`;
+        const descPrompt = Prompts.getLocationDescPrompt(loc, State.playerName);
         const raw = await queueRequest(() => callProvider([{ role: 'user', content: descPrompt }], 100));
         locationData.push({ name: loc, description: raw.trim().replace(/^["']|["']$/g, '') });
       } catch (err) {
@@ -298,27 +652,7 @@ async function showClassChoices() {
 }
 
 async function generateBackstory(name, origin, locationDesc, playerClass) {
-  const prompt = `Generate a gritty cyberpunk backstory for a character named "${name}" who became a ${playerClass}.
-  They grew up in ${origin}, a district within a sprawling megacity.
-
-  Location description: ${locationDesc}
-
-  IMPORTANT: Write about how they became a ${playerClass}. Focus on:
-  - What skill or talent made them choose this path
-  - A specific moment that pushed them toward this profession
-  - Who taught them or inspired them
-  - What they had to sacrifice
-
-  Write in second person (you). 3-4 sentences. Personal, visceral, specific to this character's experience.
-
-  Also generate 2-3 NPCs from their past (people who shaped them - could be family, friends, rivals, mentors, enemies).
-  Respond ONLY with valid JSON, no markdown, no extra text, no trailing commas. Use the exact structure:
-  {
-    "backstory": "your backstory text",
-    "npcs": [
-      {"name":"string","relationship":"Friendly|Neutral|Hostile|Suspicious","description":"one sentence — who they are and why they matter"}
-    ]
-  }`;
+  const prompt = Prompts.getBackstoryPrompt(name, origin, locationDesc, playerClass);
 
   const raw = await queueRequest(() => callProvider([{ role: 'user', content: prompt }], 500));
   console.log('[Backstory] Raw AI response:', raw); // Debug log
@@ -428,8 +762,9 @@ function typeIntoElement(el, text) {
 }
 
 function renderTragedyChoices() {
+  const tragedies = getCurrentTragedies();
   const grid = document.getElementById('ccTragedyGrid');
-  grid.innerHTML = TRAGEDIES.map(t => `
+  grid.innerHTML = tragedies.map(t => `
     <button class="cc-choice-btn cc-tragedy-btn" data-id="${t.id}">
       <span class="ccc-name red">${t.name}</span>
       <span class="ccc-desc">${t.desc}</span>
@@ -441,7 +776,8 @@ function renderTragedyChoices() {
 }
 
 async function chooseTragedy(id) {
-  const tragedy = TRAGEDIES.find(t => t.id === id);
+  const tragedies = getCurrentTragedies();
+  const tragedy = tragedies.find(t => t.id === id);
   State.tragedy = tragedy;
 
   document.querySelectorAll('.cc-tragedy-btn').forEach(b => {
@@ -458,29 +794,7 @@ async function chooseTragedy(id) {
     // Build NPC list for the prompt
     const npcList = ccBackstoryNpcs.map(n => `- ${n.name} (${n.relationship})`).join('\n');
 
-    const prompt = `Describe the night ${State.playerName} lost everything. The tragedy: ${tragedy.name} — ${tragedy.desc}.
-    ${State.playerName} grew up in ${State.origin}. Their backstory: ${State.backstory}.
-
-    Existing NPCs from their past:
-    ${npcList || 'No known NPCs yet.'}
-
-    Write a narrative that begins with a specific date and time (e.g., "On the night of February 14, 2076...").
-    Use the player's name "${State.playerName}" as a proper name (capitalized and treated as a person's name, not a generic term).
-    Tell the event in 3-4 sentences, past tense, second person ("you").
-    Focus on what happened: actions, what you saw, what was done.
-    Do NOT include reflective language like "still echoes", "haunts me", or "I remember".
-    Do NOT reveal who did it – keep the perpetrator a shadow, a figure, a blur.
-
-    Additionally, update the relationships of any NPCs from the list above that are directly involved in this tragedy.
-    If an NPC was killed, set relationship to "Dead". If they betrayed the player, set to "Hostile". If they tried to help but failed, set to "Suspicious" (or keep as is). If they are the one who caused the tragedy, keep as "???" for now.
-
-    Return ONLY valid JSON with the following structure:
-    {
-      "story": "the narrative text",
-      "npcUpdates": [
-        { "name": "Kaida", "relationship": "Dead", "description": "optional update to description" }
-      ]
-    }`;
+    const prompt = Prompts.getTragedyPrompt(State.playerName, tragedy, State.origin, State.backstory, npcList);
 
     const raw = await queueRequest(() => callProvider([{ role: 'user', content: prompt }], 350));
     let cleaned = raw.replace(/^```json\s*\n?/i, '').replace(/\n?```$/g, '').trim();
@@ -540,8 +854,9 @@ async function chooseTragedy(id) {
 }
 
 function renderUpbringingChoices() {
+  const upbringings = getCurrentUpbringings();
   const grid = document.getElementById('ccUpbringingGrid');
-  grid.innerHTML = UPBRINGINGS.map(u => `
+  grid.innerHTML = upbringings.map(u => `
     <button class="cc-choice-btn cc-upbringing-btn" data-id="${u.id}">
       <span class="ccc-name">${u.name}</span>
       <span class="ccc-desc">${u.desc}</span>
@@ -553,10 +868,13 @@ function renderUpbringingChoices() {
 }
 
 async function chooseUpbringing(id) {
-  const upbringing = UPBRINGINGS.find(u => u.id === id);
+  const upbringings = getCurrentUpbringings();
+  const upbringing = upbringings.find(u => u.id === id);
+  if (!upbringing) return;
 
+  // Disable other choices
   document.querySelectorAll('.cc-upbringing-btn').forEach(b => {
-    b.disabled      = true;
+    b.disabled = true;
     b.style.opacity = b.dataset.id === id ? '1' : '0.3';
   });
 
@@ -566,18 +884,15 @@ async function chooseUpbringing(id) {
   const roll = await animateDiceRoll();
   State.upbringingRoll = roll;
 
-  let outcome;
-  if (roll <= 3)       outcome = upbringing.outcomes.critFail;
-  else if (roll <= 8)  outcome = upbringing.outcomes.bad;
-  else if (roll <= 15) outcome = upbringing.outcomes.good;
-  else                 outcome = upbringing.outcomes.critSuccess;
+  // Apply mechanical effects and get narrative outcome
+  const outcomeNarrative = applyUpbringingOutcome(upbringing, roll);
+  State.upbringing = { ...upbringing, result: outcomeNarrative };
 
-  State.upbringing = { ...upbringing, result: outcome };
-
+  // Display the narrative outcome
   const resultEl = document.getElementById('ccDiceResult');
-  resultEl.textContent   = '';
+  resultEl.textContent = '';
   resultEl.style.display = 'block';
-  await typeIntoElement(resultEl, outcome);
+  await typeIntoElement(resultEl, outcomeNarrative);
 
   await new Promise(r => setTimeout(r, 600));
   document.getElementById('ccFinishBtn').style.display = 'block';

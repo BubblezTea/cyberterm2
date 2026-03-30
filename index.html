@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="gui_styles.css">
   <link rel="stylesheet" href="skillBuilder.css">
+  <link rel="stylesheet" href="theme.css">
   <script>
     // === SINGLE VERSION CONTROL ===
     const GAME_VERSION = "2.18";
@@ -403,6 +404,14 @@
       </div>
     </div>
 
+    <div class="settings-group">
+      <div class="settings-label">THEME</div>
+      <div class="provider-toggle" style="justify-content:space-between">
+        <button class="provider-btn" id="themeCyberpunk">CYBERPUNK</button>
+        <button class="provider-btn" id="themeFantasy">FANTASY</button>
+      </div>
+    </div>
+
     <div style="display:flex;justify-content:space-between;align-items:center">
       <button class="modal-close-btn" id="settingsClose">[ CLOSE ]</button>
       <button class="settings-save-btn" id="settingsSave">APPLY &amp; SAVE</button>
@@ -494,6 +503,8 @@
 <script src="skillBuilder.js"></script>
 <script src="main.js"></script>
 <script src="events.js"></script>
+<script src="prompts.js"></script>
+<script src="theme.js"></script>
 
 </body>
 </html>

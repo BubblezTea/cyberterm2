@@ -675,6 +675,18 @@ const SkillBuilder = (() => {
                   <label class="skb-lbl" id="skbValLbl">VALUE<span class="skb-unit-hint" id="skbValHint"> (dmg/turn)</span></label>
                   <input class="skb-input skb-num" type="number" id="skbStValue" min="0" max="999" value="5" />
                 </div>
+                <div class="skb-field" id="skbDamageTypeField" style="display:none;">
+                  <label class="skb-lbl">DAMAGE TYPE</label>
+                  <select class="skb-select" id="skbStDamageType">
+                    <option value="physical">Physical</option>
+                    <option value="fire">Fire</option>
+                    <option value="cold">Cold</option>
+                    <option value="lightning">Lightning</option>
+                    <option value="poison">Poison</option>
+                    <option value="psychic">Psychic</option>
+                    <option value="arcane">Arcane</option>
+                  </select>
+                </div>
               </div>
               <div class="skb-field">
                 <label class="skb-lbl">ICON</label>
@@ -786,6 +798,7 @@ const SkillBuilder = (() => {
     st.dmgMin      = Math.max(1, Math.min(999, parseInt(v('skbDmgMin'))   || 1));
     st.dmgMax      = Math.max(1, Math.min(999, parseInt(v('skbDmgMax'))   || 1));
     st.stEnabled   = chk('skbStToggle');
+    st.stDamageType = g('skbStDamageType')?.value || 'poison';
     
     // Check which mode is active
     const advancedMode = g('skbAdvancedMode')?.style.display !== 'none';
@@ -813,7 +826,21 @@ const SkillBuilder = (() => {
 
   function buildStatusEffect() {
     const advancedMode = g('skbAdvancedMode')?.style.display !== 'none';
-    
+
+    if (st.stEnabled && st.stName.trim()) {
+      const se = {
+        name: st.stName.trim(),
+        type: st.stType,
+        duration: st.stDuration,
+        value: st.stType === 'skip' ? 0 : st.stValue,
+        icon: st.stIcon || '⚡',
+      };
+      if (st.stType === 'dot') {
+        se.damageType = st.stDamageType || 'poison';
+      }
+      return se;
+    }
+        
     if (advancedMode && st.customEffectEnabled && st.customEffectName.trim()) {
       const actions = collectActionBlocks();
       if (actions.length === 0) return null;
@@ -926,6 +953,12 @@ const SkillBuilder = (() => {
     const valHint = g('skbValHint');
     const valLbl  = g('skbValLbl');
     const valIn   = g('skbStValue');
+    const dmgTypeField = g('skbDamageTypeField');
+    if (st.stType === 'dot') {
+      dmgTypeField.style.display = 'block';
+    } else {
+      dmgTypeField.style.display = 'none';
+    }
     if (descEl) descEl.textContent = info.desc;
     if (valHint) valHint.textContent = ` (${info.valueHint})`;
     if (valLbl) {

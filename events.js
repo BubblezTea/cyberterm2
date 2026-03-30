@@ -99,6 +99,13 @@ document.addEventListener('DOMContentLoaded', () => {
       const mpHost = !!window.Multiplayer?.isHost?.();
       const isLockedClient = mpEnabled && !mpHost;
 
+      const themeCpBtn = document.getElementById('themeCyberpunk');
+      const themeFtBtn = document.getElementById('themeFantasy');
+      if (themeCpBtn && themeFtBtn) {
+        themeCpBtn.classList.toggle('active', Theme.current === 'cyberpunk');
+        themeFtBtn.classList.toggle('active', Theme.current === 'fantasy');
+      }
+
       Object.entries(providerInputIds).forEach(([provider, ids]) => {
         const cfg = providerConfigs[provider];
         if (ids.key)   { const el = document.getElementById(ids.key);   if (el) el.value = cfg.apiKey || ''; }
@@ -217,6 +224,18 @@ document.addEventListener('DOMContentLoaded', () => {
     soundOn.addEventListener('click',  () => { if (window.Sound) Sound.enable(true);  soundOn.classList.add('active');  soundOff.classList.remove('active'); });
     soundOff.addEventListener('click', () => { if (window.Sound) Sound.enable(false); soundOff.classList.add('active'); soundOn.classList.remove('active');  });
     if (window.Sound) soundOn.classList.add('active');
+  }
+
+  // Theme toggle
+  const themeCp = document.getElementById('themeCyberpunk');
+  const themeFt = document.getElementById('themeFantasy');
+  if (themeCp && themeFt) {
+    themeCp.addEventListener('click', () => {
+      Theme.apply('cyberpunk', true);
+    });
+    themeFt.addEventListener('click', () => {
+      Theme.apply('fantasy', true);
+    });
   }
 
   // combat narration toggle
@@ -450,7 +469,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function makeDigit() {
       const d = document.createElement('div');
       d.className   = 'binary-digit';
-      d.textContent = Math.random() > 0.5 ? '1' : '0';
+      d.textContent = Theme.getRainChar();
       d.style.left  = `${Math.random() * maxLeft}px`;
       const dur     = 3 + Math.random() * 9;
       d.style.animationDuration = `${dur}s`;
