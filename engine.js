@@ -383,11 +383,17 @@ const StatSystem = {
   },
   
   calcMaxHp() {
-    return Math.floor(40 + State.stats.end * 0.8) + this.getEquipBonus('hp');
+    const baseHp = State.classBaseHp || 80;
+    const endBonus = (State.stats.end - 10) * 2;
+    const total = Math.max(10, baseHp + endBonus) + this.getEquipBonus('hp');
+    return Math.floor(total);
   },
 
   calcMaxEnergy() {
-    return Math.floor(40 + State.stats.int * 0.5) + this.getEquipBonus('energy') + this.getEquipBonus('en');
+    const baseEnergy = State.classBaseEnergy || 70;
+    const intBonus = (State.stats.int - 10) * 1.5;
+    const total = Math.max(10, baseEnergy + intBonus) + this.getEquipBonus('energy') + this.getEquipBonus('en');
+    return Math.floor(total);
   },
 
   gainXp(amount) {
