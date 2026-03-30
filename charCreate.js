@@ -233,19 +233,19 @@ async function showClassChoices() {
     loading.style.display = 'none';
 
     grid.innerHTML = classes.map(c => {
-      const s    = c.classStats || {};
-      const hp   = c.startHp      || 100;
-      const cr   = c.startCredits || 0;
+      const stats = c.coreStats || { str: 8, agi: 8, int: 8, cha: 8, tec: 8, end: 8 };
+      const hp = c.startHp || 80;
+      const cr = c.startCredits || 100;
       const warn = hp < 75 ? 'warn' : '';
       return `<button class="cc-choice-btn cc-class-btn" data-class="${c.name}">
         <span class="ccc-name">// ${c.name.toUpperCase()} //</span>
         <span class="ccc-desc">${c.description}</span>
         <div class="class-stats" style="margin-top: 8px;">
-          ${statBar('COMBAT',  s.combat  || 0, 'red')}
-          ${statBar('HACKING', s.hacking || 0, '')}
-          ${statBar('STEALTH', s.stealth || 0, 'cyan')}
-          ${statBar('SOCIAL',  s.social  || 0, 'gold')}
-          ${statBar('TECH',    s.tech    || 0, '')}
+          ${statBar('STRENGTH',  stats.str || 0, 'red')}
+          ${statBar('INTELLIGENCE', stats.int || 0, '')}
+          ${statBar('AGILITY', stats.agi || 0, 'cyan')}
+          ${statBar('CHARISMA',  stats.cha || 0, 'gold')}
+          ${statBar('TECH',    stats.tec || 0, '')}
         </div>
         <div class="class-starting">
           <div class="cs-chip ${warn}">HP <span>${hp}</span></div>
@@ -277,22 +277,17 @@ async function showClassChoices() {
 
     continueBtn.onclick = () => {
       if (!selectedClass) { errorDiv.textContent = 'SELECT A CLASS TO CONTINUE'; return; }
-      State.playerClass = selectedClass;
       const cd = classData[selectedClass];
-      State.hp          = cd.startHp      || 100;
-      State.credits     = cd.startCredits || 0;
-
-      // Set core stats from class data
-      if (cd.coreStats) {
-        State.stats = { ...State.stats, ...cd.coreStats };
-      }
-
-      // Recalculate derived stats based on new stats
-      State.maxHp     = StatSystem.calcMaxHp();
+      State.playerClass = selectedClass;
+      State.hp = cd.startHp;
+      State.credits = cd.startCredits;
+      // Set core stats
+      State.stats = { ...State.stats, ...cd.coreStats };
+      // Max HP = the class's startHp (no recalculation)
+      State.maxHp = cd.startHp;
+      // Recalculate max energy from stats (optional, but we'll use formula)
       State.maxEnergy = StatSystem.calcMaxEnergy();
-      State.hp        = Math.min(State.hp, State.maxHp);
-      State.energy    = Math.min(State.energy, State.maxEnergy);
-
+      State.energy = State.maxEnergy;          // start with full energy
       generateBackstoryAndContinue(State.playerName, State.origin, selectedClass);
     };
 

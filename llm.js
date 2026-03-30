@@ -779,9 +779,11 @@ Example quest with reward: {"title":"Job","description":"Retrieve package from w
   For each class, provide:
   - "name": a 1-3 word name.
   - "description": a single evocative sentence.
+  - "startHp": between 70 and 100.
   - "startCredits": between 0 and 200.
   - "coreStats": an object with keys str, agi, int, cha, tec, end. Each value between 1 and 20, sum exactly 60.
-  - "classStats": an object with keys combat, hacking, stealth, social, tech. Each value between 1 and 12, sum = 25.
+
+  These coreStats will determine your character's attributes in the game. The class selection UI will show bars for each of these stats (mapped: combat = str, hacking = int, stealth = agi, social = cha, tech = tec). HP is derived from end, but we'll use the provided startHp for display and initial HP.
 
   Respond ONLY with valid JSON. No markdown, no commentary.
 
@@ -789,26 +791,22 @@ Example quest with reward: {"title":"Job","description":"Retrieve package from w
   {
     "name": "Synth-Priest",
     "description": "A bio-modded mystic who hears the whispers of ancient corporate networks.",
+    "startHp": 85,
     "startCredits": 120,
-    "coreStats": { "str":8, "agi":10, "int":14, "cha":12, "tec":8, "end":8 },
-    "classStats": { "combat":3, "hacking":8, "stealth":5, "social":6, "tech":3 }
+    "coreStats": { "str":8, "agi":10, "int":14, "cha":12, "tec":8, "end":10 }
   }
 
   Now generate 4 distinct, creative classes.`;
 
     const fallback = [
-      { name:'Chrome Surgeon', description:'A back-alley ripperdoc who learned to fight with scalpels and medical chrome.', startCredits:120,
-        coreStats:{ str:10, agi:8, int:12, cha:6, tec:14, end:10 },
-        classStats:{ combat:5, hacking:4, stealth:6, social:7, tech:3 } },
-      { name:'Data Ghoul', description:'A scavenger who hunts in abandoned server farms, consuming forgotten data.', startCredits:150,
-        coreStats:{ str:6, agi:10, int:16, cha:4, tec:14, end:10 },
-        classStats:{ combat:3, hacking:9, stealth:8, social:2, tech:3 } },
-      { name:'Glitch Dancer', description:'A street performer whose neural implants let them manipulate local systems with rhythm.', startCredits:100,
-        coreStats:{ str:6, agi:14, int:12, cha:12, tec:8, end:8 },
-        classStats:{ combat:4, hacking:7, stealth:5, social:6, tech:3 } },
-      { name:'Rust Prophet', description:'A cult leader who speaks to the machine spirits in derelict factories.', startCredits:80,
-        coreStats:{ str:12, agi:6, int:12, cha:12, tec:8, end:10 },
-        classStats:{ combat:6, hacking:5, stealth:4, social:5, tech:5 } }
+      { name:'Chrome Surgeon', description:'A back-alley ripperdoc who learned to fight with scalpels and medical chrome.', startHp:85, startCredits:120,
+        coreStats:{ str:12, agi:8, int:12, cha:6, tec:14, end:10 } },
+      { name:'Data Ghoul', description:'A scavenger who hunts in abandoned server farms, consuming forgotten data.', startHp:75, startCredits:150,
+        coreStats:{ str:6, agi:12, int:16, cha:4, tec:14, end:8 } },
+      { name:'Glitch Dancer', description:'A street performer whose neural implants let them manipulate local systems with rhythm.', startHp:70, startCredits:100,
+        coreStats:{ str:6, agi:14, int:12, cha:12, tec:8, end:8 } },
+      { name:'Rust Prophet', description:'A cult leader who speaks to the machine spirits in derelict factories.', startHp:90, startCredits:80,
+        coreStats:{ str:14, agi:6, int:12, cha:12, tec:8, end:12 } }
     ];
 
     return queueRequest(async () => {
@@ -820,14 +818,12 @@ Example quest with reward: {"title":"Job","description":"Retrieve package from w
       try {
         const clean = raw.replace(/^```json\s*/i,'').replace(/```$/,'').trim();
         let classes = JSON.parse(clean);
-        // Normalize: ensure coreStats, compute startHp from coreStats.end, and fallbacks
         classes = classes.map(c => ({
           name: c.name,
           description: c.description,
-          startHp: Math.floor(40 + (c.coreStats?.end || 8) * 0.8),
+          startHp: c.startHp || 80,
           startCredits: c.startCredits || 100,
-          coreStats: c.coreStats || { str:8, agi:8, int:8, cha:8, tec:8, end:8 },
-          classStats: c.classStats || { combat:5, hacking:5, stealth:5, social:5, tech:5 }
+          coreStats: c.coreStats || { str:8, agi:8, int:8, cha:8, tec:8, end:8 }
         }));
         return classes;
       } catch(e) { console.error('class JSON parse failed:', e); return fallback; }
