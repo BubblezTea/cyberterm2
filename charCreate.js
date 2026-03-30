@@ -280,14 +280,11 @@ async function showClassChoices() {
       const cd = classData[selectedClass];
       State.playerClass = selectedClass;
       State.hp = cd.startHp;
-      State.credits = cd.startCredits;
-      // Set core stats
-      State.stats = { ...State.stats, ...cd.coreStats };
-      // Max HP = the class's startHp (no recalculation)
       State.maxHp = cd.startHp;
-      // Recalculate max energy from stats (optional, but we'll use formula)
+      State.credits = cd.startCredits;
+      State.stats = { ...State.stats, ...cd.coreStats };
       State.maxEnergy = StatSystem.calcMaxEnergy();
-      State.energy = State.maxEnergy;          // start with full energy
+      State.energy = State.maxEnergy;
       generateBackstoryAndContinue(State.playerName, State.origin, selectedClass);
     };
 
