@@ -242,8 +242,8 @@ async function showClassChoices() {
         <span class="ccc-desc">${c.description}</span>
         <div class="class-stats" style="margin-top: 8px;">
           ${statBar('STR',  stats.str || 0, 'red')}
-          ${statBar('INT', stats.int || 0, '')}
           ${statBar('AGI', stats.agi || 0, 'cyan')}
+          ${statBar('INT', stats.int || 0, '')}
           ${statBar('CHA',  stats.cha || 0, 'gold')}
           ${statBar('TEC',    stats.tec || 0, '')}
         </div>
