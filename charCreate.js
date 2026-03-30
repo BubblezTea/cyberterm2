@@ -318,7 +318,7 @@ async function generateBackstory(name, origin, locationDesc, playerClass) {
   Write in second person (you). 3-4 sentences. Personal, visceral, specific to this character's experience.
 
   Also generate 2-3 NPCs from their past (people who shaped them - could be family, friends, rivals, mentors, enemies).
-  Respond ONLY with valid JSON, no markdown:
+  Respond ONLY with valid JSON, no markdown, no extra text, no trailing commas. Use the exact structure:
   {
     "backstory": "your backstory text",
     "npcs": [
@@ -326,26 +326,54 @@ async function generateBackstory(name, origin, locationDesc, playerClass) {
     ]
   }`;
 
-  const raw   = await queueRequest(() => callProvider([{ role: 'user', content: prompt }], 500));
-  let cleaned = raw.replace(/^```json\s*/i, '').replace(/```$/g, '').trim();
-  cleaned     = cleaned.replace(/,\s*([}\]])/g, '$1');
+  const raw = await queueRequest(() => callProvider([{ role: 'user', content: prompt }], 500));
+  console.log('[Backstory] Raw AI response:', raw); // Debug log
 
+  // Clean up markdown fences and trailing commas
+  let cleaned = raw.replace(/^```json\s*/i, '').replace(/```$/g, '').trim();
+  cleaned = cleaned.replace(/,\s*([}\]])/g, '$1');
+
+  // Try to parse the JSON
+  let result;
   try {
-    const result = JSON.parse(cleaned);
-    if (result.npcs) {
-      result.npcs = result.npcs.map(n => ({
-        ...n,
-        description: n.description || 'A memory you can\'t shake.',
-      }));
-    }
-    return result;
+    result = JSON.parse(cleaned);
   } catch (e) {
-    console.error('Backstory parse failed:', e);
-    return {
-      backstory: `You grew up hard in ${origin}. The streets didn't care about your name, only what you could do. You learned to fight before you learned to read, and you made enemies you're still running from.`,
-      npcs: [],
+    console.error('[Backstory] JSON parse failed, attempting fallback extraction:', e);
+
+    // Fallback: extract backstory and npcs using regex
+    const backstoryMatch = cleaned.match(/"backstory"\s*:\s*"([^"\\]*(\\.[^"\\]*)*)"/);
+    const npcsMatch = cleaned.match(/"npcs"\s*:\s*(\[[\s\S]*?\])/);
+    
+    result = {
+      backstory: backstoryMatch ? backstoryMatch[1] : '',
+      npcs: []
     };
+
+    if (npcsMatch) {
+      try {
+        result.npcs = JSON.parse(npcsMatch[1]);
+      } catch (e2) {
+        console.error('[Backstory] Failed to parse NPCs array:', e2);
+      }
+    }
+
+    // If still empty, use fallback
+    if (!result.backstory) {
+      result.backstory = `You grew up hard in ${origin}. The streets didn't care about your name, only what you could do. You learned to fight before you learned to read, and you made enemies you're still running from.`;
+    }
   }
+
+  // Ensure NPCs have descriptions
+  if (result.npcs && Array.isArray(result.npcs)) {
+    result.npcs = result.npcs.map(n => ({
+      ...n,
+      description: n.description || 'A memory you can\'t shake.',
+    }));
+  } else {
+    result.npcs = [];
+  }
+
+  return result;
 }
 
 async function generateBackstoryAndContinue(name, origin, playerClass) {
@@ -442,7 +470,7 @@ async function chooseTragedy(id) {
     Existing NPCs from their past:
     ${npcList || 'No known NPCs yet.'}
 
-    Write a narrative that begins with a specific date and time (e.g., "On the night of February 14, 2045...").
+    Write a narrative that begins with a specific date and time (e.g., "On the night of February 14, 2076...").
     Use the player's name "${State.playerName}" as a proper name (capitalized and treated as a person's name, not a generic term).
     Tell the event in 3-4 sentences, past tense, second person ("you").
     Focus on what happened: actions, what you saw, what was done.
