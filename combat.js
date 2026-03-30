@@ -81,7 +81,7 @@ const EffectEngine = {
     const oldTeam = target.team;
     target.team = newTeam;
     CombatEngine.clog(`${target.name} switches sides! Now fighting for ${newTeam}.`, 'cl-effect');
-    activeCombat._calculateTurnOrder();
+    CombatEngine._calculateTurnOrder();
     return true;
   },
 
@@ -543,12 +543,17 @@ One terse, visceral sentence. No numbers, no mechanics. Reply only: {"narration"
 
     let dmg = 0;
     let isCrit = false;
+    let exposeMultiplier = 1;
+    
+    // Check for expose effect on target
+    const exposeEffect = target.statusEffects.find(s => s.type === 'expose');
+    if (exposeEffect) exposeMultiplier = 1.5;
+    
     if (skill.damage) {
       const base = skill.damage[0] + Math.floor(Math.random() * (skill.damage[1] - skill.damage[0] + 1));
       const statMod = skill.statScaling ? Math.floor(State.stats[skill.statScaling] * 0.4) : 0;
       isCrit = Math.random() * 100 < State.stats.agi * 1.5;
-      const expose = target.statusEffects.find(s => s.type === 'expose') ? 1.5 : 1;
-      dmg = Math.max(1, Math.floor((base + statMod) * (isCrit ? 1.5 : 1) * expose));
+      dmg = Math.max(1, Math.floor((base + statMod) * (isCrit ? 1.5 : 1) * exposeMultiplier));
     }
 
     let finalDmg = dmg;
@@ -561,25 +566,118 @@ One terse, visceral sentence. No numbers, no mechanics. Reply only: {"narration"
       }
     }
 
-    target.hp = Math.max(0, target.hp - finalDmg);
-    if (target.id === 'player') State.hp = target.hp;
+    if (finalDmg > 0) {
+      target.hp = Math.max(0, target.hp - finalDmg);
+      if (target.id === 'player') State.hp = target.hp;
+    }
 
-    let mechMsg = `▶ ${skill.name} on ${target.name} — ${finalDmg} dmg${isCrit ? ' [CRIT]' : ''}`;
-    if (reflected) mechMsg += ` (reflected ${Math.floor(dmg * target.reflectPercent / 100)})`;
-    await this._narrate(mechMsg, `Player uses ${skill.name} on ${target.name} dealing ${finalDmg} damage.`, isCrit ? 'cl-crit' : 'cl-player');
+    // Build log message - handle skills with status effects but no damage
+    let mechMsg = `▶ ${skill.name} on ${target.name}`;
+    if (finalDmg > 0) {
+      mechMsg += ` — ${finalDmg} dmg${isCrit ? ' [CRIT]' : ''}`;
+    }
+    if (reflected) {
+      mechMsg += ` (reflected ${Math.floor(dmg * target.reflectPercent / 100)})`;
+    }
+    await this._narrate(mechMsg, `Player uses ${skill.name} on ${target.name}${finalDmg > 0 ? ` dealing ${finalDmg} damage` : ''}.`, isCrit ? 'cl-crit' : 'cl-player');
 
-    if (skill.statusEffect && skill.statusEffect.effects) {
-      for (const action of skill.statusEffect.effects) {
-        EffectEngine.execute(target, action, skill.name);
-      }
-      if (skill.statusEffect.duration > 0) {
-        target.statusEffects.push({
-          name: skill.statusEffect.name,
-          description: skill.statusEffect.description,
-          duration: skill.statusEffect.duration,
-          effects: skill.statusEffect.effects,
-          type: 'custom'
-        });
+    const effectsToApply = skill.statusEffects || (skill.statusEffect ? [skill.statusEffect] : null);
+
+    if (effectsToApply && effectsToApply.length) {
+      for (const eff of effectsToApply) {
+        // Check for advanced effect with effects array
+        if (eff.effects && Array.isArray(eff.effects)) {
+          for (const action of eff.effects) {
+            const actionTarget = action.target === 'self' ? c.playerObj :
+                                (action.target === 'ally' ? target : target);
+            EffectEngine.execute(actionTarget, action, skill.name);
+          }
+          // Add the status effect to the target for duration tracking
+          if (eff.duration > 0) {
+            target.statusEffects.push({
+              name: eff.name,
+              description: eff.description || `${eff.name} effect.`,
+              duration: eff.duration,
+              effects: eff.effects,
+              type: 'custom'
+            });
+          }
+        } else {
+          // Simple status effect (original system)
+          if (eff.type === 'skip') {
+            const skipEffect = target.statusEffects.find(e => e.name === 'Stunned' && e.type === 'skip');
+            if (skipEffect) {
+              skipEffect.duration = Math.max(skipEffect.duration, eff.duration);
+            } else {
+              target.statusEffects.push({
+                name: 'Stunned',
+                type: 'skip',
+                duration: eff.duration,
+                value: 0,
+                description: `Stunned for ${eff.duration} turns.`
+              });
+            }
+            this.clog(`${target.name} is stunned for ${eff.duration} turn(s)!`, 'cl-status');
+          } 
+          else if (eff.type === 'dot') {
+            const dotEffect = target.statusEffects.find(e => e.type === 'dot');
+            if (dotEffect) {
+              dotEffect.duration = Math.max(dotEffect.duration, eff.duration);
+              dotEffect.value = Math.max(dotEffect.value, eff.value);
+            } else {
+              target.statusEffects.push({
+                name: eff.name,
+                type: 'dot',
+                duration: eff.duration,
+                value: eff.value,
+                icon: eff.icon,
+                description: `${eff.value} damage per turn.`
+              });
+            }
+            this.clog(`${target.name} is afflicted with ${eff.name} for ${eff.duration} turns!`, 'cl-status');
+          }
+          else if (eff.type === 'expose') {
+            const exposeEffect = target.statusEffects.find(e => e.type === 'expose');
+            if (exposeEffect) {
+              exposeEffect.duration = Math.max(exposeEffect.duration, eff.duration);
+              exposeEffect.value = Math.max(exposeEffect.value, eff.value);
+            } else {
+              target.statusEffects.push({
+                name: eff.name,
+                type: 'expose',
+                duration: eff.duration,
+                value: eff.value,
+                description: `Takes ${eff.value}% extra damage.`
+              });
+            }
+            this.clog(`${target.name} is exposed — taking +${eff.value}% damage!`, 'cl-status');
+          }
+          else if (eff.type === 'debuff') {
+            const debuffEffect = target.statusEffects.find(e => e.type === 'debuff_agi');
+            if (debuffEffect) {
+              debuffEffect.duration = Math.max(debuffEffect.duration, eff.duration);
+              debuffEffect.value = Math.max(debuffEffect.value, eff.value);
+            } else {
+              target.statusEffects.push({
+                name: eff.name,
+                type: 'debuff_agi',
+                duration: eff.duration,
+                value: eff.value,
+                description: `AGI reduced by ${eff.value}.`
+              });
+            }
+            this.clog(`${target.name}'s AGI is reduced by ${eff.value}!`, 'cl-status');
+          }
+          else if (eff.type === 'buff') {
+            State.energy = Math.min(State.maxEnergy, State.energy + eff.value);
+            this.clog(`+${eff.value} energy restored!`, 'cl-player');
+          }
+          else if (eff.type === 'buff_hp') {
+            State.hp = Math.min(State.maxHp, State.hp + eff.value);
+            c.playerObj.hp = State.hp;
+            this.clog(`+${eff.value} HP restored!`, 'cl-player');
+          }
+        }
       }
     }
 
@@ -777,6 +875,12 @@ One terse, visceral sentence. No numbers, no mechanics. Reply only: {"narration"
           combatant.hp = State.hp;
           this.clog(`${sf.name}: +${sf.value} HP`, 'cl-status');
         }
+        
+        // Skip effects are decremented during turn checks, not at end of round
+        if (sf.type === 'skip') {
+          continue; // do not decrement or remove here
+        }
+        
         sf.duration--;
         if (sf.duration <= 0) {
           this.clog(`${sf.name} fades from ${combatant.name}.`, 'cl-system');

@@ -303,19 +303,32 @@ const Ui = {
       panel.innerHTML = '<div class="panel-empty">[ NO SKILLS ]</div>';
       return;
     }
-    panel.innerHTML = State.skills.map(skill => `
+    panel.innerHTML = State.skills.map((skill, idx) => `
       <div class="skill-card" data-skill="${skill.name}">
         <div class="skill-name">${skill.name}</div>
         <div class="skill-desc">${skill.description || ''}</div>
-        <button class="skill-use-btn">USE</button>
+        <div class="skill-meta">
+          ${skill.damage ? `${skill.damage[0]}-${skill.damage[1]} dmg` : 'Utility'} · 
+          ${skill.energyCost} en · 
+          ${skill.cooldown > 0 ? `${skill.cooldown}t cd` : 'no cd'}
+        </div>
+        <div style="display:flex; gap:8px; margin-top:6px;">
+          <button class="skill-use-btn" data-idx="${idx}">USE</button>
+          <button class="skill-edit-btn" data-idx="${idx}">EDIT</button>
+        </div>
       </div>
     `).join('');
 
-    panel.querySelectorAll('.skill-use-btn').forEach((btn, idx) => {
+    panel.querySelectorAll('.skill-use-btn').forEach((btn, i) => {
       btn.addEventListener('click', () => {
-        const skill = State.skills[idx];
-        // Open custom modal instead of prompt
-        this.showSkillTargetModal(skill);
+        const skill = State.skills[i];
+        Ui.showSkillTargetModal(skill);
+      });
+    });
+    panel.querySelectorAll('.skill-edit-btn').forEach((btn, i) => {
+      btn.addEventListener('click', () => {
+        const skill = State.skills[i];
+        SkillBuilder.open(skill);
       });
     });
   },

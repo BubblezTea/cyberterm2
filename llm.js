@@ -506,68 +506,124 @@ You MUST respond ONLY with a single valid JSON object. No prose outside the JSON
 - Never use "creditsDelta" for quest rewards. Quest rewards are displayed in the quest log.
 
 - CRITICAL: Before using a negative "creditsDelta", you MUST verify that the player has enough credits. If they do not, do NOT include the creditsDelta. Instead, narrate that the transaction fails due to insufficient funds, or that they just don't get a deal.
-
+- CRITICAL: Never duplicate fields. Each key ("narration", "hpDelta", "creditsDelta", "newSkill", etc.) must appear exactly once. If you need to add multiple skills, use an array like "newSkills": [].
 Example quest with reward: {"title":"Job","description":"Retrieve package from warehouse","status":"active","reward":"700 credits"}
 
 {
+  // OPTIONAL - omit if not needed
   "narration": "string",
-  "addItems": [{ "name":"string","amount":number,"description":"string","slot":"head|body|hands|back|null","statBonus":{"str":0,"agi":0,"int":0,"cha":0,"tec":0,"end":0,"hp":0,"energy":0} }],
-  "removeItems": [{ "name":"string","amount":number }],
-  "npcs": [{ "name":"string","relationship":"Friendly|Neutral|Hostile|Suspicious|Ally|Dead","description":"string" }],
-  "quests": [{ "title":"string","description":"string","status":"active|complete|failed","reward":"string" }],
-  "keyFacts": ["string"],
-  "traits": ["NAME||description||mechanical effect"],
-  "newSkill": {
-    "name": "string",
-    "description": "string",
-    "damage": [number, number] | null,
-    "energyCost": number,
-    "cooldown": number,
-    "statScaling": "str|agi|int|cha|tec|null",
-    "statusEffect": null | {
-      "name": "string",
-      "description": "string",
-      "type": "dot|skip|expose|debuff_agi|buff_shield|buff_hp",
-      "duration": number,
-      "value": number
+  
+  "addItems": [{ 
+    "name": "string",                           // required
+    "amount": number,                           // optional, default 1
+    "description": "string",                    // optional
+    "slot": "head|body|hands|back|null",        // optional
+    "statBonus": {                              // optional
+      "str": number, "agi": number, "int": number, 
+      "cha": number, "tec": number, "end": number, 
+      "hp": number, "energy": number
     }
-  },
-  "gui": {
+  }],
+  
+  "removeItems": [{ 
+    "name": "string",      // required
+    "amount": number       // optional, default 1
+  }],
+  
+  "npcs": [{ 
+    "name": "string",                          // required
+    "relationship": "Friendly|Neutral|Hostile|Suspicious|Ally|Dead",  // required
+    "description": "string"                    // required
+  }],
+  
+  "quests": [{ 
+    "title": "string",                         // required
+    "description": "string",                   // required
+    "status": "active|complete|failed",        // required
+    "reward": "string"                         // optional
+  }],
+  
+  "keyFacts": ["string"],                      // optional
+  
+  "traits": ["NAME||description||mechanical effect"],  // optional
+  
+  "newSkills": [{                              // optional - use for 1+ skills
+    "name": "string",                          // required
+    "description": "string",                   // required
+    "damage": [number, number] | null,         // optional - null for utility skills
+    "energyCost": number,                      // required
+    "cooldown": number,                        // required
+    "statScaling": "str|agi|int|cha|tec|null", // optional
+    "statusEffect": null | {                   // optional
+      "name": "string",                        // required if present
+      "description": "string",                 // required if present
+      "duration": number,                      // required - turns it lasts
+      "effects": [{                            // required - at least 1
+        "type": "damage|heal|skip_turn|change_team|stat_mod|extra_turn|reflect_damage|spread|immune|transform_skill|wait",
+        "value": number,                       // for damage/heal/stat_mod
+        "delay": number,                       // optional, default 0
+        "target": "self|player|enemy|ally",    // optional, default "enemy"
+        "newTeam": "ally|enemy",               // for change_team
+        "stat": "str|agi|int|cha|tec|end",     // for stat_mod
+        "delta": number,                       // for stat_mod (-5 to +5)
+        "percent": number,                     // for reflect_damage (1-100)
+        "radius": number,                      // for spread (1 only)
+        "effectName": "string",                // for spread - name of effect to spread
+        "damageType": "string",                // for immune
+        "oldSkillName": "string",              // for transform_skill
+        "newSkillName": "string"               // for transform_skill
+      }]
+    }
+  }],
+  
+  "gui": {                                     // optional - use EITHER gui OR narration, not both
     "type": "shop|terminal|dialogue_tree|loot|profile|chatbox",
     "title": "string",
     "data": {}
   },
-  "statDelta": { "str": number, "agi": number, "int": number, "cha": number, "tec": number, "end": number },
-  "hpDelta": number,
-  "creditsDelta": number,
-  "newLocation": "string",
-  "timeAdvance": number,
-  "roll": "none|stealth|hacking|social",
-  "qte": {
-    "prompt": "string",
-    "action": "string",
-    "timeLimit": number,
-    "successNarration": "string",
-    "failNarration": "string",
-    "successHpDelta": number,
-    "failHpDelta": number
+  
+  "statDelta": {                               // optional
+    "str": number, "agi": number, "int": number, 
+    "cha": number, "tec": number, "end": number
   },
-  "combat": {
-    "enemies": [{
-      "name": "string",
-      "level": number,
-      "hp": number,
-      "agi": number,
-      "description": "string",
-      "skills": [{
+  
+  "hpDelta": number,                           // optional
+  "creditsDelta": number,                      // optional
+  "newLocation": "string",                     // optional
+  "timeAdvance": number,                       // optional - minutes
+  "roll": "none|stealth|hacking|social",       // optional
+  
+  "qte": {                                     // optional
+    "prompt": "string",                        // required
+    "action": "string",                        // required
+    "timeLimit": number,                       // required - seconds
+    "successNarration": "string",              // required
+    "failNarration": "string",                 // required
+    "successHpDelta": number,                  // optional
+    "failHpDelta": number                      // optional
+  },
+  
+  "combat": {                                  // optional
+    "enemies": [{                              // required
+      "name": "string",                        // required
+      "level": number,                         // optional
+      "hp": number,                            // required
+      "agi": number,                           // required
+      "description": "string",                 // optional
+      "skills": [{                             // required - at least 1
         "name": "string",
         "damage": [number, number],
         "energyCost": number,
         "cooldown": number,
-        "statusEffect": null
+        "statusEffect": null | {               // optional
+          "name": "string",
+          "description": "string",
+          "duration": number,
+          "effects": [{ "type": "string", "value": number, "delay": number, "target": "string" }]
+        }
       }]
     }],
-    "allies": [{
+    "allies": [{                               // optional
       "name": "string",
       "level": number,
       "hp": number,

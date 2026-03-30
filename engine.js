@@ -118,17 +118,26 @@ const Engine = {
       }
     }
     if (resp.newLocation) State.location = resp.newLocation;
-    if (resp.newSkill && resp.newSkill.name) {
+    if (resp.newSkills && Array.isArray(resp.newSkills)) {
+      resp.newSkills.forEach(skill => {
+        if (skill.name && isValidSkill(skill)) {
+          const exists = State.skills.find(s => s.name.toLowerCase() === skill.name.toLowerCase());
+          if (!exists) {
+            State.skills.push({ ...skill, currentCooldown: 0 });
+            addKeyFact(`Learned new skill: ${skill.name}`);
+            Ui.addInstant(`[ LEARNED: ${skill.name} ]`, 'system');
+          }
+        } else if (skill.name) {
+          console.warn('Rejected invalid skill:', skill.name);
+          Ui.addInstant(`[ SYSTEM: skill "${skill.name}" rejected — no combat value ]`, 'system');
+        }
+      });
+    } else if (resp.newSkill && resp.newSkill.name && isValidSkill(resp.newSkill)) {
       const exists = State.skills.find(s => s.name.toLowerCase() === resp.newSkill.name.toLowerCase());
       if (!exists) {
-        if (isValidSkill(resp.newSkill)) {
-          State.skills.push({ ...resp.newSkill, currentCooldown:0 });
-          addKeyFact(`Learned new skill: ${resp.newSkill.name}`);
-          Ui.addInstant(`[ LEARNED: ${resp.newSkill.name} ]`, 'system');
-        } else {
-          console.warn('Rejected invalid skill:', resp.newSkill.name);
-          Ui.addInstant(`[ SYSTEM: skill "${resp.newSkill.name}" rejected — no combat value ]`, 'system');
-        }
+        State.skills.push({ ...resp.newSkill, currentCooldown: 0 });
+        addKeyFact(`Learned new skill: ${resp.newSkill.name}`);
+        Ui.addInstant(`[ LEARNED: ${resp.newSkill.name} ]`, 'system');
       }
     }
 

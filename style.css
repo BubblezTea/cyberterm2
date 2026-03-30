@@ -2159,3 +2159,18 @@ body, html {
   background: var(--green-lo);
   box-shadow: 0 0 10px var(--green-glow);
 }
+
+.skill-edit-btn {
+  background: var(--green-lo);
+  border: 1px solid var(--green);
+  color: var(--green);
+  padding: 4px 12px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 11px;
+  transition: 0.1s;
+}
+.skill-edit-btn:hover {
+  background: var(--green-md);
+  box-shadow: 0 0 8px var(--green-glow);
+}
