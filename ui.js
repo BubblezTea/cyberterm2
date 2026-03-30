@@ -780,8 +780,8 @@ const Console = {
     }
   },
 
-  cmdSet(args) {
-    const sub = (args[0]||'').toLowerCase();
+  cmdSet(args, raw) {
+    const sub = (args[0] || '').toLowerCase();
     switch(sub) {
       case 'hp': {
         const n = parseInt(args[1]);
@@ -796,7 +796,7 @@ const Console = {
         this.log(`credits = ${State.credits}`, 'ok'); break;
       }
       case 'stat': {
-        const key = (args[1]||'').toLowerCase();
+        const key = (args[1] || '').toLowerCase();
         const n   = parseInt(args[2]);
         if (!['str','agi','int','cha','tec','end'].includes(key)||isNaN(n)) {
           this.log('usage: set stat <key> <n>', 'err'); break;
@@ -817,7 +817,7 @@ const Console = {
         State.location = loc; this.log(`location = "${loc}"`, 'ok'); break;
       }
       case 'time': {
-        const t = args[1]||'';
+        const t = args[1] || '';
         const m = t.match(/^(\d{1,2}):(\d{2})$/);
         if (!m) { this.log('usage: set time HH:MM', 'err'); break; }
         State.gameMinutes = parseInt(m[1])*60+parseInt(m[2]);
@@ -830,24 +830,24 @@ const Console = {
       }
       case 'npc': {
         // Format: set npc <name> | <relationship> | <description>
-        const rest = raw.replace(/^set\s+npc\s*/i, '');
+        const rest = raw.replace(/^set\s+npc\s*/i, '');   // ← raw is now defined
         const parts = rest.split('|').map(p => p.trim());
-        
+
         if (parts.length < 2) {
           this.log('usage: set npc <name> | <relationship> | <description>', 'err');
           break;
         }
-        
+
         const name = parts[0];
         const relationship = parts[1];
         const description = parts.length > 2 ? parts[2] : '';
-        
+
         const validRels = ['Friendly', 'Neutral', 'Hostile', 'Suspicious', 'Ally', 'Dead'];
         if (!validRels.includes(relationship)) {
           this.log(`relationship must be one of: ${validRels.join(', ')}`, 'err');
           break;
         }
-        
+
         const ex = State.npcs.find(n => n.name.toLowerCase() === name.toLowerCase());
         if (ex) {
           ex.relationship = relationship;

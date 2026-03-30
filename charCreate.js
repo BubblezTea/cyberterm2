@@ -406,37 +406,83 @@ function renderTragedyChoices() {
 }
 
 async function chooseTragedy(id) {
-  const tragedy  = TRAGEDIES.find(t => t.id === id);
-  State.tragedy  = tragedy;
+  const tragedy = TRAGEDIES.find(t => t.id === id);
+  State.tragedy = tragedy;
 
   document.querySelectorAll('.cc-tragedy-btn').forEach(b => {
-    b.disabled      = true;
+    b.disabled = true;
     b.style.opacity = b.dataset.id === id ? '1' : '0.3';
   });
 
   const storyEl = document.getElementById('ccTragedyStory');
   storyEl.style.display = 'block';
-  storyEl.innerHTML     = '<div class="cc-loading">RECONSTRUCTING MEMORY...</div>';
+  storyEl.innerHTML = '<div class="cc-loading">RECONSTRUCTING MEMORY...</div>';
 
-  let storyText = tragedy.desc;
+  let storyText = tragedy.desc; // fallback
   try {
+    // Build NPC list for the prompt
+    const npcList = ccBackstoryNpcs.map(n => `- ${n.name} (${n.relationship})`).join('\n');
+
     const prompt = `Describe the night ${State.playerName} lost everything. The tragedy: ${tragedy.name} — ${tragedy.desc}.
-  ${State.playerName} grew up in ${State.origin}. Their backstory: ${State.backstory}.
+    ${State.playerName} grew up in ${State.origin}. Their backstory: ${State.backstory}.
 
-  Write a narrative that begins with a specific date and time (e.g., "On the night of February 14, 2045...").
-  Use the player's name "${State.playerName}" as a proper name (capitalized and treated as a person's name, not a generic term).
-  Tell the event in 3-4 sentences, past tense, second person ("you").
-  Focus on what happened: actions, what you saw, what was done.
-  Do NOT include reflective language like "still echoes", "haunts me", or "I remember".
-  Do NOT reveal who did it – keep the perpetrator a shadow, a figure, a blur.
-  Only the narrative text, nothing else.`;
+    Existing NPCs from their past:
+    ${npcList || 'No known NPCs yet.'}
 
-    const raw = await queueRequest(() => callProvider([{ role: 'user', content: prompt }], 250));
-    storyText = raw.trim().replace(/^["']|["']$/g, '');
+    Write a narrative that begins with a specific date and time (e.g., "On the night of February 14, 2045...").
+    Use the player's name "${State.playerName}" as a proper name (capitalized and treated as a person's name, not a generic term).
+    Tell the event in 3-4 sentences, past tense, second person ("you").
+    Focus on what happened: actions, what you saw, what was done.
+    Do NOT include reflective language like "still echoes", "haunts me", or "I remember".
+    Do NOT reveal who did it – keep the perpetrator a shadow, a figure, a blur.
+
+    Additionally, update the relationships of any NPCs from the list above that are directly involved in this tragedy.
+    If an NPC was killed, set relationship to "Dead". If they betrayed the player, set to "Hostile". If they tried to help but failed, set to "Suspicious" (or keep as is). If they are the one who caused the tragedy, keep as "???" for now.
+
+    Return ONLY valid JSON with the following structure:
+    {
+      "story": "the narrative text",
+      "npcUpdates": [
+        { "name": "Kaida", "relationship": "Dead", "description": "optional update to description" }
+      ]
+    }`;
+
+    const raw = await queueRequest(() => callProvider([{ role: 'user', content: prompt }], 350));
+    let cleaned = raw.replace(/^```json\s*/i, '').replace(/```$/g, '').trim();
+    cleaned = cleaned.replace(/,\s*([}\]])/g, '$1');
+
+    let result;
+    try {
+      result = JSON.parse(cleaned);
+    } catch (e) {
+      console.error('Tragedy parse failed:', e);
+      result = { story: tragedy.desc, npcUpdates: [] };
+    }
+
+    // Use the parsed story
+    storyText = result.story || tragedy.desc;
+
+    // Apply NPC updates
+    const npcUpdates = result.npcUpdates || [];
+    npcUpdates.forEach(update => {
+      const existing = ccBackstoryNpcs.find(n => n.name.toLowerCase() === update.name.toLowerCase());
+      if (existing) {
+        existing.relationship = update.relationship;
+        if (update.description) existing.description = update.description;
+      } else {
+        ccBackstoryNpcs.push({
+          name: update.name,
+          relationship: update.relationship,
+          description: update.description || `Involved in the tragedy.`
+        });
+      }
+    });
   } catch (e) {
+    console.error('Tragedy generation failed:', e);
     storyText = tragedy.desc;
   }
 
+  // Display the result
   storyEl.innerHTML = `
     <div class="tragedy-reveal">
       <div class="tragedy-reveal-name">${tragedy.name}</div>
@@ -447,8 +493,8 @@ async function chooseTragedy(id) {
     </div>`;
 
   document.getElementById('tragedyContinueBtn').addEventListener('click', () => {
-    document.getElementById('ccStep2').style.display   = 'none';
-    document.getElementById('ccStep3').style.display   = 'flex';
+    document.getElementById('ccStep2').style.display = 'none';
+    document.getElementById('ccStep3').style.display = 'flex';
     document.getElementById('ccStepLabel').textContent = 'STEP 5 / 6';
     renderUpbringingChoices();
   });
