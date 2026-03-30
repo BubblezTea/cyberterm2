@@ -233,7 +233,7 @@ async function showClassChoices() {
     loading.style.display = 'none';
 
     grid.innerHTML = classes.map(c => {
-      const s    = c.stats || {};
+      const s    = c.classStats || {};
       const hp   = c.startHp      || 100;
       const cr   = c.startCredits || 0;
       const warn = hp < 75 ? 'warn' : '';
@@ -278,8 +278,21 @@ async function showClassChoices() {
     continueBtn.onclick = () => {
       if (!selectedClass) { errorDiv.textContent = 'SELECT A CLASS TO CONTINUE'; return; }
       State.playerClass = selectedClass;
-      State.hp          = classData[selectedClass].startHp      || 100;
-      State.credits     = classData[selectedClass].startCredits || 0;
+      const cd = classData[selectedClass];
+      State.hp          = cd.startHp      || 100;
+      State.credits     = cd.startCredits || 0;
+
+      // Set core stats from class data
+      if (cd.coreStats) {
+        State.stats = { ...State.stats, ...cd.coreStats };
+      }
+
+      // Recalculate derived stats based on new stats
+      State.maxHp     = StatSystem.calcMaxHp();
+      State.maxEnergy = StatSystem.calcMaxEnergy();
+      State.hp        = Math.min(State.hp, State.maxHp);
+      State.energy    = Math.min(State.energy, State.maxEnergy);
+
       generateBackstoryAndContinue(State.playerName, State.origin, selectedClass);
     };
 

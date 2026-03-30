@@ -772,59 +772,62 @@ Example quest with reward: {"title":"Job","description":"Retrieve package from w
 
   async getClasses() {
     const prompt = `Generate exactly 4 cyberpunk character classes for a noir RPG, inspired by the player's name: "${State.playerName || 'a mysterious figure'}". 
-Let the name influence the classes – think about its sound, possible meanings, or the vibe it gives.
-Each class must be UNIQUE and INVENTIVE. Avoid generic names like "Netrunner", "Merc", "Fixer". 
-Think of specialized, unusual concepts: e.g., "Chrome Surgeon", "Data Ghoul", "Synth-Priest", "Rust Prophet", "Glitch Dancer".
+  Let the name influence the classes – think about its sound, possible meanings, or the vibe it gives.
+  Each class must be UNIQUE and INVENTIVE. Avoid generic names like "Netrunner", "Merc", "Fixer". 
+  Think of specialized, unusual concepts: e.g., "Chrome Surgeon", "Data Ghoul", "Synth-Priest", "Rust Prophet", "Glitch Dancer".
 
-For each class, provide:
-- "name": a 1-3 word name that evokes a specific role or concept.
-- "description": a single evocative sentence that hints at their unique style and backstory.
-- "startHp": between 60 and 100.
-- "startCredits": between 0 and 200.
-- "stats": an object with 5 skills: combat, hacking, stealth, social, tech. Each stat between 1 and 20, total = 50.
+  For each class, provide:
+  - "name": a 1-3 word name.
+  - "description": a single evocative sentence.
+  - "startCredits": between 0 and 200.
+  - "coreStats": an object with keys str, agi, int, cha, tec, end. Each value between 1 and 20, sum exactly 60.
+  - "classStats": an object with keys combat, hacking, stealth, social, tech. Each value between 1 and 12, sum = 25.
 
-Respond ONLY with valid JSON. No markdown, no commentary.
+  Respond ONLY with valid JSON. No markdown, no commentary.
 
-Example (do not use this exact class):
-{
-  "name": "Synth-Priest",
-  "description": "A bio-modded mystic who hears the whispers of ancient corporate networks.",
-  "startHp": 75,
-  "startCredits": 120,
-  "stats": { "combat":3, "hacking":8, "stealth":5, "social":6, "tech":3 }
-}
+  Example (do not use this exact class):
+  {
+    "name": "Synth-Priest",
+    "description": "A bio-modded mystic who hears the whispers of ancient corporate networks.",
+    "startCredits": 120,
+    "coreStats": { "str":8, "agi":10, "int":14, "cha":12, "tec":8, "end":8 },
+    "classStats": { "combat":3, "hacking":8, "stealth":5, "social":6, "tech":3 }
+  }
 
-Now generate 4 distinct, creative classes.`;
+  Now generate 4 distinct, creative classes.`;
 
     const fallback = [
-      { name:'Chrome Surgeon',   description:'A back-alley ripperdoc who learned to fight with scalpels and medical chrome.', startHp:80,  startCredits:120, stats:{combat:5,hacking:4,stealth:6,social:7,tech:3} },
-      { name:'Data Ghoul',       description:'A scavenger who hunts in abandoned server farms, consuming forgotten data.', startHp:70,  startCredits:150, stats:{combat:3,hacking:9,stealth:8,social:2,tech:3} },
-      { name:'Glitch Dancer',    description:'A street performer whose neural implants let them manipulate local systems with rhythm.', startHp:65,  startCredits:100, stats:{combat:4,hacking:7,stealth:5,social:6,tech:3} },
-      { name:'Rust Prophet',     description:'A cult leader who speaks to the machine spirits in derelict factories.', startHp:90,  startCredits:80,  stats:{combat:6,hacking:5,stealth:4,social:5,tech:5} },
+      { name:'Chrome Surgeon', description:'A back-alley ripperdoc who learned to fight with scalpels and medical chrome.', startCredits:120,
+        coreStats:{ str:10, agi:8, int:12, cha:6, tec:14, end:10 },
+        classStats:{ combat:5, hacking:4, stealth:6, social:7, tech:3 } },
+      { name:'Data Ghoul', description:'A scavenger who hunts in abandoned server farms, consuming forgotten data.', startCredits:150,
+        coreStats:{ str:6, agi:10, int:16, cha:4, tec:14, end:10 },
+        classStats:{ combat:3, hacking:9, stealth:8, social:2, tech:3 } },
+      { name:'Glitch Dancer', description:'A street performer whose neural implants let them manipulate local systems with rhythm.', startCredits:100,
+        coreStats:{ str:6, agi:14, int:12, cha:12, tec:8, end:8 },
+        classStats:{ combat:4, hacking:7, stealth:5, social:6, tech:3 } },
+      { name:'Rust Prophet', description:'A cult leader who speaks to the machine spirits in derelict factories.', startCredits:80,
+        coreStats:{ str:12, agi:6, int:12, cha:12, tec:8, end:10 },
+        classStats:{ combat:6, hacking:5, stealth:4, social:5, tech:5 } }
     ];
 
     return queueRequest(async () => {
       let raw = '';
-      try { raw = await callProvider([{ role:'user', content:prompt }], 800); }
+      try { raw = await callProvider([{ role: 'user', content: prompt }], 800); }
       catch(err) { console.warn('class gen failed:', err); return fallback; }
 
       if (!raw) return fallback;
       try {
-        const clean   = raw.replace(/^```json\s*/i,'').replace(/```$/,'').trim();
-        let classes   = JSON.parse(clean);
-        const defSt   = { combat:5, hacking:5, stealth:5, social:5, tech:5 };
+        const clean = raw.replace(/^```json\s*/i,'').replace(/```$/,'').trim();
+        let classes = JSON.parse(clean);
+        // Normalize: ensure coreStats, compute startHp from coreStats.end, and fallbacks
         classes = classes.map(c => ({
-          name:         c.name         || 'Unknown',
-          description:  c.description  || '',
-          startHp:      c.startHp      || 80,
+          name: c.name,
+          description: c.description,
+          startHp: Math.floor(40 + (c.coreStats?.end || 8) * 0.8),
           startCredits: c.startCredits || 100,
-          stats: {
-            combat:  c.stats?.combat  ?? defSt.combat,
-            hacking: c.stats?.hacking ?? defSt.hacking,
-            stealth: c.stats?.stealth ?? defSt.stealth,
-            social:  c.stats?.social  ?? defSt.social,
-            tech:    c.stats?.tech    ?? defSt.tech,
-          },
+          coreStats: c.coreStats || { str:8, agi:8, int:8, cha:8, tec:8, end:8 },
+          classStats: c.classStats || { combat:5, hacking:5, stealth:5, social:5, tech:5 }
         }));
         return classes;
       } catch(e) { console.error('class JSON parse failed:', e); return fallback; }
