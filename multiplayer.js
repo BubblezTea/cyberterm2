@@ -670,7 +670,7 @@ Return JSON with:
       box.innerHTML = `
         <div style="display:flex; gap:8px; margin-top:6px;">
           <button class="mp-btn ${youReady ? '' : 'mp-primary'}" id="mpOverlayReadyBtn" style="flex:1" ${started ? 'disabled' : ''}>${youReady ? 'UNREADY' : 'READY UP'}</button>
-          ${MP.isHost() && !started ? `<button class="mp-btn" id="mpOverlayLoadSaveBtn" style="flex:1">📂 LOAD SAVE</button>` : ''}
+          ${MP.isHost() && !started ? `<button class="mp-btn" id="mpOverlayLoadSaveBtn" style="flex:1">LOAD SAVE</button>` : ''}
           ${MP.isHost() ? `<button class="mp-btn mp-primary" id="mpOverlayStartBtn" style="flex:1" ${(!allReady || started) ? 'disabled' : ''}>START</button>` : ''}
         </div>
         <div class="mp-status" style="margin-top:8px; min-height:auto">
