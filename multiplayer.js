@@ -24,6 +24,10 @@
     loadedSaveName: null,
     _lastSnapshotTime: 0,
 
+    // Request tracking for AI calls from clients
+    _requestId: 0,
+    _pendingRequests: new Map(),
+
     isHost() { return this.enabled && this.role === 'host'; },
     isClient() { return this.enabled && this.role === 'client'; },
 
@@ -66,9 +70,33 @@
       return true;
     },
 
+    // Request-response helpers
+    _sendRequest(type, payload) {
+      const id = this._requestId++;
+      return new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          this._pendingRequests.delete(id);
+          reject(new Error(`Request timeout: ${type}`));
+        }, 30000);
+        this._pendingRequests.set(id, { resolve, reject, timeout });
+        this._send(type, { requestId: id, ...payload });
+      });
+    },
+
+    _handleResponse(msg) {
+      const { requestId, result, error } = msg;
+      const pending = this._pendingRequests.get(requestId);
+      if (pending) {
+        clearTimeout(pending.timeout);
+        if (error) pending.reject(new Error(error));
+        else pending.resolve(result);
+        this._pendingRequests.delete(requestId);
+      }
+    },
+
     _broadcastSelfSnapshotThrottled() {
       const now = Date.now();
-      if (now - this._lastSnapshotTime < 2000) return; // max 1 every 2 seconds
+      if (now - this._lastSnapshotTime < 2000) return;
       this._lastSnapshotTime = now;
       this._broadcastSelfSnapshot();
     },
@@ -212,7 +240,7 @@
       });
     },
 
-    _handle(msg) {
+    async _handle(msg) {
       switch (msg.type) {
         case 'welcome': {
           this.playerId = msg.playerId;
@@ -267,7 +295,6 @@
         case 'game_started': {
           if (this.isClient()) {
             this.gameActive = true;
-            // skipCharCreation may have been set by a previous sync_broadcast
             try { Ui.setInputLocked(false); } catch (_) {}
           }
           this._emitUiUpdate();
@@ -279,11 +306,9 @@
           break;
         }
 
-        // New: host loaded a save and broadcasted it
         case 'save_loaded': {
           if (this.isClient()) {
             this._applyHostSync(msg.sync);
-            // After applying the state, we set skipCharCreation flag
             this.skipCharCreation = true;
             this.loadedSaveName = msg.sync.loadedSaveName;
             Ui.addInstant(`[ MP ] Host loaded save: ${this.loadedSaveName}`, 'system');
@@ -292,23 +317,125 @@
           break;
         }
 
-        case 'combat_start':{
-          CombatEngine.handleMultiplayerMessage(msg);
+        // --- AI request handling (host only) ---
+        case 'req_locations': {
+          if (!this.isHost()) return;
+          const { requestId, playerName } = msg;
+          try {
+            const prompt = Prompts.getLocationPrompt(playerName);
+            const raw = await queueRequest(() => callProvider([{ role: 'user', content: prompt }], 300));
+            let cleaned = raw.replace(/^```json\s*/i, '').replace(/```$/g, '').trim();
+            cleaned = cleaned.replace(/,\s*([}\]])/g, '$1');
+            const locations = JSON.parse(cleaned);
+            this._send('res_locations', { requestId, result: locations });
+          } catch (err) {
+            console.error('Host location fetch failed', err);
+            this._send('res_locations', { requestId, error: err.message, result: ['Cinder Row', 'The Spire Gardens', 'Neon Bazaar', 'Floodgate District'] });
+          }
           break;
         }
-        case 'combat_sync': {
-          CombatEngine.handleMultiplayerMessage(msg);
+
+        case 'req_location_desc': {
+          if (!this.isHost()) return;
+          const { requestId, location, playerName } = msg;
+          try {
+            const descPrompt = Prompts.getLocationDescPrompt(location, playerName);
+            const raw = await queueRequest(() => callProvider([{ role: 'user', content: descPrompt }], 100));
+            const description = raw.trim().replace(/^["']|["']$/g, '');
+            this._send('res_location_desc', { requestId, result: description });
+          } catch (err) {
+            console.error('Host location description failed', err);
+            this._send('res_location_desc', { requestId, error: err.message, result: `The streets of ${location} where survival costs more than credits.` });
+          }
           break;
         }
-          
-        case 'combat_action': {
-          CombatEngine.handleMultiplayerMessage(msg);
+
+        case 'req_classes': {
+          if (!this.isHost()) return;
+          const { requestId } = msg;
+          try {
+            const classes = await Llm.getClasses();
+            this._send('res_classes', { requestId, result: classes });
+          } catch (err) {
+            console.error('Host class generation failed', err);
+            const isFantasy = localStorage.getItem('ct_theme') === 'fantasy';
+            const fallback = isFantasy
+              ? [
+                  { name:'Knight', description:'A heavily armored warrior sworn to a fallen lord.', startHp:100, startCredits:80,
+                    coreStats:{ str:16, agi:8, int:6, cha:10, tec:8, end:12 } },
+                  { name:'Wizard', description:'A scholar of forbidden magic, wielding spells that can warp reality.', startHp:70, startCredits:120,
+                    coreStats:{ str:4, agi:6, int:18, cha:12, tec:8, end:12 } },
+                  { name:'Ranger', description:'A scout of the wilds, skilled with bow and survival.', startHp:85, startCredits:100,
+                    coreStats:{ str:10, agi:14, int:8, cha:8, tec:8, end:12 } },
+                  { name:'Cleric', description:'A priest of a forgotten deity, wielding divine magic to heal and smite.', startHp:90, startCredits:100,
+                    coreStats:{ str:12, agi:6, int:10, cha:14, tec:6, end:12 } }
+                ]
+              : [
+                  { name:'Chrome Surgeon', description:'A back-alley ripperdoc who learned to fight with scalpels and medical chrome.', startHp:85, startCredits:120,
+                    coreStats:{ str:12, agi:8, int:12, cha:6, tec:14, end:10 } },
+                  { name:'Data Ghoul', description:'A scavenger who hunts in abandoned server farms, consuming forgotten data.', startHp:75, startCredits:150,
+                    coreStats:{ str:6, agi:12, int:16, cha:4, tec:14, end:8 } },
+                  { name:'Glitch Dancer', description:'A street performer whose neural implants let them manipulate local systems with rhythm.', startHp:70, startCredits:100,
+                    coreStats:{ str:6, agi:14, int:12, cha:12, tec:8, end:8 } },
+                  { name:'Rust Prophet', description:'A cult leader who speaks to the machine spirits in derelict factories.', startHp:90, startCredits:80,
+                    coreStats:{ str:14, agi:6, int:12, cha:12, tec:8, end:12 } }
+                ];
+            this._send('res_classes', { requestId, result: fallback });
+          }
           break;
         }
-        case 'combat_end': {
-          CombatEngine.handleMultiplayerMessage(msg);
+
+        case 'req_backstory': {
+          if (!this.isHost()) return;
+          const { requestId, name, origin, locationDesc, playerClass } = msg;
+          try {
+            const prompt = Prompts.getBackstoryPrompt(name, origin, locationDesc, playerClass);
+            const raw = await queueRequest(() => callProvider([{ role: 'user', content: prompt }], 500));
+            let cleaned = raw.replace(/^```json\s*/i, '').replace(/```$/g, '').trim();
+            cleaned = cleaned.replace(/,\s*([}\]])/g, '$1');
+            const result = JSON.parse(cleaned);
+            this._send('res_backstory', { requestId, result });
+          } catch (err) {
+            console.error('Host backstory generation failed', err);
+            this._send('res_backstory', { requestId, error: err.message, result: { backstory: `You grew up hard in ${origin}. The streets didn't care about your name, only what you could do.`, npcs: [] } });
+          }
           break;
         }
+
+        case 'req_tragedy': {
+          if (!this.isHost()) return;
+          const { requestId, playerName, tragedy, origin, backstory, npcs } = msg;
+          try {
+            const prompt = Prompts.getTragedyPrompt(playerName, tragedy, origin, backstory, npcs);
+            const raw = await queueRequest(() => callProvider([{ role: 'user', content: prompt }], 350));
+            let cleaned = raw.replace(/^```json\s*\n?/i, '').replace(/\n?```$/g, '').trim();
+            cleaned = cleaned.replace(/,\s*([}\]])/g, '$1');
+            if (cleaned.includes('```')) cleaned = cleaned.replace(/```json\s*/i, '').replace(/```/g, '').trim();
+            const result = JSON.parse(cleaned);
+            this._send('res_tragedy', { requestId, result });
+          } catch (err) {
+            console.error('Host tragedy generation failed', err);
+            this._send('res_tragedy', { requestId, error: err.message, result: { story: tragedy.desc, npcUpdates: [] } });
+          }
+          break;
+        }
+
+        case 'res_locations':
+        case 'res_location_desc':
+        case 'res_classes':
+        case 'res_backstory':
+        case 'res_tragedy': {
+          if (this.isClient()) this._handleResponse(msg);
+          break;
+        }
+
+        // Combat messages (already handled in combat.js)
+        case 'combat_start':
+        case 'combat_sync':
+        case 'combat_action':
+        case 'combat_end':
+          CombatEngine.handleMultiplayerMessage(msg);
+          break;
       }
     },
 
@@ -416,7 +543,6 @@ Return JSON only:
 
         if (resp.narration) Ui.enqueue(resp.narration, 'narrator');
 
-        // wait for typing before syncing so clients get the full log
         const doSync = () => {
           const logHtml = document.getElementById('narrativeLog')?.innerHTML || '';
           const state = JSON.parse(JSON.stringify(State));
@@ -445,7 +571,6 @@ Return JSON only:
     saveGame(name) {
       if (!this.enabled) return false;
       if (!this.isHost()) {
-        // Clients can request host to save, but we'll ignore for simplicity
         Ui.addInstant('[ MP ] Only host can save.', 'system');
         return false;
       }
@@ -467,7 +592,6 @@ Return JSON only:
       if (ok) {
         this.skipCharCreation = true;
         this.loadedSaveName = name;
-        // Broadcast the loaded state to all clients
         const logHtml = document.getElementById('narrativeLog')?.innerHTML || '';
         const state = JSON.parse(JSON.stringify(State));
         this._send('save_loaded', {
@@ -484,17 +608,14 @@ Return JSON only:
       }
     },
 
-    // Called when host wants to skip character creation and start with a loaded save
     startWithLoadedSave() {
       if (!this.isHost()) return;
       if (!this.skipCharCreation || !this.loadedSaveName) {
         Ui.addInstant('[ MP ] No loaded save found.', 'system');
         return;
       }
-      // Skip the normal start flow and directly go to game
       this.combinedStartDone = true;
       this.gameActive = true;
-      // Broadcast that game is starting with loaded save
       const logHtml = document.getElementById('narrativeLog')?.innerHTML || '';
       const state = JSON.parse(JSON.stringify(State));
       this._send('sync_broadcast', { sync: { state, logHtml } });
@@ -527,9 +648,6 @@ Return JSON only:
 
     startMatch() {
       if (!this.enabled || !this.isHost()) return;
-      // If we have a loaded save and we want to start directly, we could use startWithLoadedSave.
-      // But for normal flow, we just send start_game as usual. Clients will go to _enterGame,
-      // which will check skipCharCreation and act accordingly.
       this._send('start_game', {});
     },
 
@@ -539,15 +657,12 @@ Return JSON only:
       try { window.MultiplayerUI?.close?.(); } catch (_) {}
 
       if (this.skipCharCreation && this.loadedSaveName) {
-        // Skip character creation: directly go to game screen with the loaded state
         Ui.showScreen('gameScreen');
         Ui.updateHeader();
         Ui.renderSidebar();
         Ui.setInputLocked(false);
-        // The state is already applied from the sync
         return;
       }
-      // Normal path: go to character creation
       Ui.showScreen('charCreateScreen');
     },
 
@@ -589,7 +704,7 @@ Return JSON only:
     },
   };
 
-  // UI helper with load save button
+  // UI helper (unchanged)
   const MultiplayerUI = {
     open() { document.getElementById('mpOverlay')?.classList.add('open'); },
     close() { document.getElementById('mpOverlay')?.classList.remove('open'); },
@@ -667,7 +782,6 @@ Return JSON only:
       }).join('');
     },
 
-    // Show save selection modal (reuse existing modal? or create simple inline)
     showLoadSaveModal() {
       if (!MP.isHost()) return;
       const slots = SaveLoad.slots();
@@ -676,13 +790,11 @@ Return JSON only:
         return;
       }
 
-      // Create a simple modal or use the existing one
       const modal = document.getElementById('modalOverlay');
       const modalTitle = document.getElementById('modalTitle');
       const modalSlots = document.getElementById('modalSlots');
       const modalInputArea = document.getElementById('saveInputArea');
       const modalMsg = document.getElementById('modalMsg');
-      const modalSaveBtn = document.getElementById('modalSaveConfirm');
       const modalClose = document.getElementById('modalClose');
 
       if (!modal) return;
