@@ -31,6 +31,13 @@
     isHost() { return this.enabled && this.role === 'host'; },
     isClient() { return this.enabled && this.role === 'client'; },
 
+    requestFromHost(type, payload) {
+      if (!this.enabled || this.isHost()) {
+        return Promise.reject(new Error('Only clients can request from host'));
+      }
+      return this._sendRequest(type, payload);
+    },
+
     _emitUiUpdate() {
       try { window.MultiplayerUI?.render?.(); } catch (_) {}
       try { this._applyAccessGates(); } catch (_) {}

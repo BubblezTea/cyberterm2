@@ -476,7 +476,44 @@ async function handleStep1() {
   showLocationChoices();
 }
 
+async function fetchLocationDescription(location) {
+  const isMultiplayer = window.Multiplayer && window.Multiplayer.enabled;
+  const isClient = isMultiplayer && !window.Multiplayer.isHost();
+
+  if (isClient) {
+    try {
+      return await window.Multiplayer.requestFromHost('req_location_desc', { location, playerName: State.playerName });
+    } catch (err) {
+      console.warn(`Host description fetch failed for ${location}, using fallback:`, err);
+      return `The streets of ${location} where survival costs more than credits.`;
+    }
+  }
+
+  // Host or solo mode
+  const descPrompt = Prompts.getLocationDescPrompt(location, State.playerName);
+  try {
+    const raw = await queueRequest(() => callProvider([{ role: 'user', content: descPrompt }], 100));
+    return raw.trim().replace(/^["']|["']$/g, '');
+  } catch (err) {
+    console.warn(`Local description fetch failed for ${location}:`, err);
+    return `The streets of ${location} where survival costs more than credits.`;
+  }
+}
+
 async function fetchLocationOptions() {
+  const isMultiplayer = window.Multiplayer && window.Multiplayer.enabled;
+  const isClient = isMultiplayer && !window.Multiplayer.isHost();
+
+  if (isClient) {
+    try {
+      const locations = await window.Multiplayer.requestFromHost('req_locations', { playerName: State.playerName });
+      return locations;
+    } catch (err) {
+      console.warn('Host location fetch failed, using fallback:', err);
+      return ['Cinder Row', 'The Spire Gardens', 'Neon Bazaar', 'Floodgate District'];
+    }
+  }
+
   const prompt = Prompts.getLocationPrompt(State.playerName);
   try {
     const raw = await queueRequest(() => callProvider([{ role: 'user', content: prompt }], 300));
@@ -580,8 +617,17 @@ async function showClassChoices() {
   continueBtn.style.display = 'none';
 
   try {
-    const classes = await Llm.getClasses();
-    classData     = {};
+    let classes;
+    const isMultiplayer = window.Multiplayer && window.Multiplayer.enabled;
+    const isClient = isMultiplayer && !window.Multiplayer.isHost();
+
+    if (isClient) {
+      classes = await window.Multiplayer.requestFromHost('req_classes', {});
+    } else {
+      classes = await Llm.getClasses(); // original AI call
+    }
+
+    classData = {};
     classes.forEach(c => { classData[c.name] = c; });
 
     loading.style.display = 'none';
@@ -646,14 +692,27 @@ async function showClassChoices() {
 
   } catch (err) {
     loading.style.display = 'none';
-    errorDiv.textContent  = 'Failed to load classes. Check your AI connection.';
+    errorDiv.textContent = 'Failed to load classes. Check your AI connection.';
     console.error(err);
   }
 }
 
 async function generateBackstory(name, origin, locationDesc, playerClass) {
-  const prompt = Prompts.getBackstoryPrompt(name, origin, locationDesc, playerClass);
+  const isMultiplayer = window.Multiplayer && window.Multiplayer.enabled;
+  const isClient = isMultiplayer && !window.Multiplayer.isHost();
 
+  if (isClient) {
+    try {
+      return await window.Multiplayer.requestFromHost('req_backstory', { name, origin, locationDesc, playerClass });
+    } catch (err) {
+      console.warn('Host backstory generation failed, using fallback:', err);
+      return {
+        backstory: `You grew up hard in ${origin}. The streets didn't care about your name, only what you could do.`,
+        npcs: []
+      };
+    }
+  }
+  const prompt = Prompts.getBackstoryPrompt(name, origin, locationDesc, playerClass);
   const raw = await queueRequest(() => callProvider([{ role: 'user', content: prompt }], 500));
   console.log('[Backstory] Raw AI response:', raw); // Debug log
 
@@ -794,28 +853,30 @@ async function chooseTragedy(id) {
     // Build NPC list for the prompt
     const npcList = ccBackstoryNpcs.map(n => `- ${n.name} (${n.relationship})`).join('\n');
 
-    const prompt = Prompts.getTragedyPrompt(State.playerName, tragedy, State.origin, State.backstory, npcList);
-
-    const raw = await queueRequest(() => callProvider([{ role: 'user', content: prompt }], 350));
-    let cleaned = raw.replace(/^```json\s*\n?/i, '').replace(/\n?```$/g, '').trim();
-    cleaned = cleaned.replace(/,\s*([}\]])/g, '$1');
-
-    if (cleaned.includes('```')) {
-      cleaned = cleaned.replace(/```json\s*/i, '').replace(/```/g, '').trim();
-    }
+    const isMultiplayer = window.Multiplayer && window.Multiplayer.enabled;
+    const isClient = isMultiplayer && !window.Multiplayer.isHost();
 
     let result;
-    try {
+    if (isClient) {
+      result = await window.Multiplayer.requestFromHost('req_tragedy', {
+        playerName: State.playerName,
+        tragedy,
+        origin: State.origin,
+        backstory: State.backstory,
+        npcs: npcList
+      });
+    } else {
+      const prompt = Prompts.getTragedyPrompt(State.playerName, tragedy, State.origin, State.backstory, npcList);
+      const raw = await queueRequest(() => callProvider([{ role: 'user', content: prompt }], 350));
+      let cleaned = raw.replace(/^```json\s*\n?/i, '').replace(/\n?```$/g, '').trim();
+      cleaned = cleaned.replace(/,\s*([}\]])/g, '$1');
+      if (cleaned.includes('```')) cleaned = cleaned.replace(/```json\s*/i, '').replace(/```/g, '').trim();
       result = JSON.parse(cleaned);
-    } catch (e) {
-      console.error('Tragedy parse failed:', e);
-      result = { story: tragedy.desc, npcUpdates: [] };
     }
 
-    // Use the parsed story
     storyText = result.story || tragedy.desc;
 
-    // Apply NPC updates
+    // Apply NPC updates (same as before)
     const npcUpdates = result.npcUpdates || [];
     npcUpdates.forEach(update => {
       const existing = ccBackstoryNpcs.find(n => n.name.toLowerCase() === update.name.toLowerCase());
