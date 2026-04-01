@@ -1,5 +1,4 @@
 // multiplayer.js - lightweight 1-4p relay multiplayer (host authoritative)
-
 (() => {
   const MP = {
     enabled: false,
@@ -8,14 +7,21 @@
     playerId: null,
     ws: null,
     lobby: {
-      started: false,
+      started: false,   // host clicked START, players should go to char creation
     },
-    players: [], // { id, name, stats, promptDraft, promptLocked, lockOrder }
+    players: [],
     lockState: {
       lockedIds: [],
       lockOrder: [],
-      prompts: {}, // id -> { text, ts, order }
+      prompts: {},
     },
+    // Combined start tracking
+    playersReadyForGame: {},
+    gameActive: false,
+    combinedStartDone: false,
+    // Save/load flags
+    skipCharCreation: false,
+    loadedSaveName: null,
 
     isHost() { return this.enabled && this.role === 'host'; },
     isClient() { return this.enabled && this.role === 'client'; },
@@ -27,7 +33,6 @@
     },
 
     _applyAccessGates() {
-      // Host-only: dev console + skill forge/edit is handled in Ui/SkillBuilder; console button needs gating here.
       const consoleBtn = document.getElementById('consoleBtn');
       if (consoleBtn) {
         const allowed = !this.enabled || this.isHost();
@@ -71,6 +76,13 @@
         level: State.level,
         energy: State.energy,
         maxEnergy: State.maxEnergy,
+        backstory: State.backstory,
+        origin: State.origin,
+        traits: State.traits,
+        stats: State.stats,
+        skills: State.skills,
+        inventory: State.inventory,
+        equipped: State.equipped,
       };
       this._send('player_snapshot', { snapshot });
     },
@@ -79,7 +91,6 @@
       if (!sync) return;
       if (sync.state) {
         try {
-          // Replace State shallowly
           Object.assign(State, JSON.parse(JSON.stringify(sync.state)));
         } catch (e) {
           console.warn('[MP] sync state failed', e);
@@ -92,6 +103,8 @@
           log.scrollTop = log.scrollHeight;
         }
       }
+      if (sync.skipCharCreation !== undefined) this.skipCharCreation = sync.skipCharCreation;
+      if (sync.loadedSaveName !== undefined) this.loadedSaveName = sync.loadedSaveName;
       Ui.updateHeader();
       Ui.renderSidebar();
     },
@@ -103,6 +116,11 @@
       this.players = [];
       this.lockState = { lockedIds: [], lockOrder: [], prompts: {} };
       this.lobby = { started: false };
+      this.playersReadyForGame = {};
+      this.gameActive = false;
+      this.combinedStartDone = false;
+      this.skipCharCreation = false;
+      this.loadedSaveName = null;
 
       const url = (window.MULTIPLAYER_WS_URL || 'ws://localhost:8787').trim();
       this._setStatus(`CONNECTING… (${url})`);
@@ -119,6 +137,11 @@
       this.players = [];
       this.lockState = { lockedIds: [], lockOrder: [], prompts: {} };
       this.lobby = { started: false };
+      this.playersReadyForGame = {};
+      this.gameActive = false;
+      this.combinedStartDone = false;
+      this.skipCharCreation = false;
+      this.loadedSaveName = null;
 
       const url = (window.MULTIPLAYER_WS_URL || 'ws://localhost:8787').trim();
       this._setStatus(`CONNECTING… (${url})`);
@@ -139,6 +162,11 @@
       this.players = [];
       this.lockState = { lockedIds: [], lockOrder: [], prompts: {} };
       this.lobby = { started: false };
+      this.playersReadyForGame = {};
+      this.gameActive = false;
+      this.combinedStartDone = false;
+      this.skipCharCreation = false;
+      this.loadedSaveName = null;
       this._emitUiUpdate();
     },
 
@@ -162,7 +190,6 @@
         ws.onclose = () => {
           if (this.enabled) {
             this._setStatus('DISCONNECTED FROM RELAY.', 'err');
-            // stay in enabled mode so UI shows disconnected state
           }
           this._emitUiUpdate();
         };
@@ -195,19 +222,24 @@
           break;
         }
 
+        case 'player_ready': {
+          if (!this.isHost()) break;
+          const pid = msg.playerId;
+          this.playersReadyForGame[pid] = true;
+          this._checkAllReady();
+          break;
+        }
+
         case 'prompt_locked': {
-          // Show in log for everyone, in the order it arrives
           const { playerId, name, text, order } = msg;
           const label = name || 'Player';
           Ui.addInstant(`[${label}] ${text}`, 'player');
-          // Host: when everybody locked, trigger AI with ordered prompts
-          if (this.isHost()) this._maybeRunHostTurn();
+          if (this.isHost() && this.gameActive) this._maybeRunHostTurn();
           this._emitUiUpdate();
           break;
         }
 
         case 'request_sync': {
-          // Server asks host to sync to a joiner
           if (!this.isHost()) break;
           const targetId = msg.targetId;
           const logHtml = document.getElementById('narrativeLog')?.innerHTML || '';
@@ -217,10 +249,18 @@
         }
 
         case 'sync': {
-          // Client receives authoritative state/log
           if (this.isClient()) this._applyHostSync(msg.sync);
-          // Both roles should unlock after a sync broadcast (next turn ready)
           try { Ui.setInputLocked(false); } catch (_) {}
+          this._emitUiUpdate();
+          break;
+        }
+
+        case 'game_started': {
+          if (this.isClient()) {
+            this.gameActive = true;
+            // skipCharCreation may have been set by a previous sync_broadcast
+            try { Ui.setInputLocked(false); } catch (_) {}
+          }
           this._emitUiUpdate();
           break;
         }
@@ -229,7 +269,190 @@
           Ui.addInstant(`[ MP ] ${msg.text || ''}`.trim(), 'system');
           break;
         }
+
+        // New: host loaded a save and broadcasted it
+        case 'save_loaded': {
+          if (this.isClient()) {
+            this._applyHostSync(msg.sync);
+            // After applying the state, we set skipCharCreation flag
+            this.skipCharCreation = true;
+            this.loadedSaveName = msg.sync.loadedSaveName;
+            Ui.addInstant(`[ MP ] Host loaded save: ${this.loadedSaveName}`, 'system');
+          }
+          this._emitUiUpdate();
+          break;
+        }
       }
+    },
+
+    // Called by clients after character creation is complete
+    readyForGame() {
+      if (!this.enabled || this.isHost()) return;
+      this._send('player_ready', {});
+    },
+
+    // Host calls this after finishing its own character creation
+    _markSelfReady() {
+      if (!this.isHost()) return;
+      this.playersReadyForGame[this.playerId] = true;
+      this._checkAllReady();
+    },
+
+    _checkAllReady() {
+      if (!this.isHost()) return;
+      if (this.combinedStartDone) return;
+
+      const allPlayers = this.players.map(p => p.id);
+      const allReady = allPlayers.every(id => this.playersReadyForGame[id]);
+      if (allReady && allPlayers.length > 0) {
+        this._runCombinedStart();
+      }
+    },
+
+    async _runCombinedStart() {
+      if (!this.isHost()) return;
+      if (this.combinedStartDone) return;
+      this.combinedStartDone = true;
+      this.gameActive = true;
+
+      // If a save was loaded, skip generating a new start
+      if (this.skipCharCreation && this.loadedSaveName) {
+        // The state is already applied, just broadcast that we're ready
+        const logHtml = document.getElementById('narrativeLog')?.innerHTML || '';
+        const state = JSON.parse(JSON.stringify(State));
+        this._send('sync_broadcast', { sync: { state, logHtml } });
+        this._send('game_started', {});
+        // Also notify everyone that we're using a loaded save
+        this._send('system', { text: `Game started with loaded save: ${this.loadedSaveName}` });
+        return;
+      }
+
+      // Normal combined start (new game)
+      const playersData = this.players.map(p => {
+        const snap = p.snapshot || {};
+        return {
+          name: p.name,
+          class: snap.playerClass || '???',
+          backstory: snap.backstory || 'No backstory provided.',
+          traits: snap.traits || [],
+          origin: snap.origin || 'Unknown',
+          stats: snap.stats || {},
+          inventory: snap.inventory || [],
+        };
+      });
+
+      const prompt = `
+MULTIPLAYER CAMPAIGN START
+Players and their characters:
+${playersData.map(p => `
+- ${p.name} (${p.class})
+  Backstory: ${p.backstory}
+  Traits: ${p.traits.map(t => t.name).join(', ') || 'None'}
+  Origin: ${p.origin}
+`).join('\n')}
+
+Generate a starting scene that brings these characters together in a shared location.
+Create a short, atmospheric description (3-4 sentences) that introduces where they are and what's happening.
+Also, suggest an initial location (e.g., "The Rusty Nail", "Cinder Row") and optionally an opening quest hook.
+
+Return JSON with:
+{
+  "narration": "...",
+  "newLocation": "Location Name",
+  "quests": [{"title": "Opening Hook", "description": "...", "status": "active"}],
+  "hpDelta": 0,
+  "creditsDelta": 0,
+  "addItems": []
+}
+`;
+
+      Ui.setInputLocked(true);
+      try {
+        const resp = await Llm.send(prompt, 'MULTIPLAYER_START=true');
+        Engine.applyResponse(resp);
+        if (resp.narration) Ui.enqueue(resp.narration, 'narrator');
+        if (resp.quests) {
+          resp.quests.forEach(q => {
+            if (!State.quests.find(ex => ex.title === q.title)) State.quests.push(q);
+          });
+        }
+        if (resp.newLocation) State.location = resp.newLocation;
+
+        Ui.updateHeader();
+        Ui.renderSidebar();
+
+        const logHtml = document.getElementById('narrativeLog')?.innerHTML || '';
+        const state = JSON.parse(JSON.stringify(State));
+        this._send('sync_broadcast', { sync: { state, logHtml } });
+        this._send('game_started', {});
+      } catch (err) {
+        console.error('Combined start failed', err);
+        Ui.addInstant('[ MP ] Combined start failed. Starting normally.', 'system');
+        const logHtml = document.getElementById('narrativeLog')?.innerHTML || '';
+        const state = JSON.parse(JSON.stringify(State));
+        this._send('sync_broadcast', { sync: { state, logHtml } });
+        this._send('game_started', {});
+      } finally {
+        Ui.setInputLocked(false);
+      }
+    },
+
+    // Host-only save/load methods
+    saveGame(name) {
+      if (!this.enabled) return false;
+      if (!this.isHost()) {
+        // Clients can request host to save, but we'll ignore for simplicity
+        Ui.addInstant('[ MP ] Only host can save.', 'system');
+        return false;
+      }
+      const ok = SaveLoad.save(name);
+      if (ok) {
+        this._send('system', { text: `Game saved as "${name}"` });
+      } else {
+        this._send('system', { text: `Failed to save "${name}"` });
+      }
+      return ok;
+    },
+
+    loadSave(name) {
+      if (!this.isHost()) {
+        Ui.addInstant('[ MP ] Only host can load saves.', 'system');
+        return false;
+      }
+      const ok = SaveLoad.load(name);
+      if (ok) {
+        this.skipCharCreation = true;
+        this.loadedSaveName = name;
+        // Broadcast the loaded state to all clients
+        const logHtml = document.getElementById('narrativeLog')?.innerHTML || '';
+        const state = JSON.parse(JSON.stringify(State));
+        this._send('save_loaded', {
+          sync: { state, logHtml, skipCharCreation: true, loadedSaveName: name }
+        });
+        this._send('system', { text: `Loaded save: ${name}` });
+        return true;
+      } else {
+        this._send('system', { text: `Failed to load save: ${name}` });
+        return false;
+      }
+    },
+
+    // Called when host wants to skip character creation and start with a loaded save
+    startWithLoadedSave() {
+      if (!this.isHost()) return;
+      if (!this.skipCharCreation || !this.loadedSaveName) {
+        Ui.addInstant('[ MP ] No loaded save found.', 'system');
+        return;
+      }
+      // Skip the normal start flow and directly go to game
+      this.combinedStartDone = true;
+      this.gameActive = true;
+      // Broadcast that game is starting with loaded save
+      const logHtml = document.getElementById('narrativeLog')?.innerHTML || '';
+      const state = JSON.parse(JSON.stringify(State));
+      this._send('sync_broadcast', { sync: { state, logHtml } });
+      this._send('game_started', {});
+      this._send('system', { text: `Game started with loaded save: ${this.loadedSaveName}` });
     },
 
     setDraft(text) {
@@ -240,6 +463,10 @@
 
     lockIn(text) {
       if (!this.enabled) return false;
+      if (!this.gameActive) {
+        Ui.addInstant('[ MP ] Wait for game to start...', 'system');
+        return false;
+      }
       const t = String(text || '').trim();
       if (!t) return false;
       this._send('lock_in', { text: t.slice(0, 1200) });
@@ -253,6 +480,9 @@
 
     startMatch() {
       if (!this.enabled || !this.isHost()) return;
+      // If we have a loaded save and we want to start directly, we could use startWithLoadedSave.
+      // But for normal flow, we just send start_game as usual. Clients will go to _enterGame,
+      // which will check skipCharCreation and act accordingly.
       this._send('start_game', {});
     },
 
@@ -260,20 +490,29 @@
       if (this.__enteredGame) return;
       this.__enteredGame = true;
       try { window.MultiplayerUI?.close?.(); } catch (_) {}
-      // Throw everyone into the game flow (character creation first)
-      try { Ui.showScreen('charCreateScreen'); } catch (_) {}
+
+      if (this.skipCharCreation && this.loadedSaveName) {
+        // Skip character creation: directly go to game screen with the loaded state
+        Ui.showScreen('gameScreen');
+        Ui.updateHeader();
+        Ui.renderSidebar();
+        Ui.setInputLocked(false);
+        // The state is already applied from the sync
+        return;
+      }
+      // Normal path: go to character creation
+      Ui.showScreen('charCreateScreen');
     },
 
     async _maybeRunHostTurn() {
       if (!this.isHost()) return;
       if (!this.lobby.started) return;
-      // Need everyone connected to be locked to run a turn
+      if (!this.gameActive) return;
       const players = this.players || [];
       if (!players.length) return;
       const locked = players.filter(p => p.promptLocked);
       if (locked.length !== players.length) return;
 
-      // Build ordered prompt list
       const ordered = [...locked].sort((a, b) => (a.lockOrder ?? 999) - (b.lockOrder ?? 999));
       const combined = ordered.map((p, idx) => {
         const nm = p.name || `P${idx + 1}`;
@@ -283,7 +522,6 @@
 
       if (!combined.trim()) return;
 
-      // Run as a single "combined" player action through normal pipeline, but without echoing again.
       Ui.setInputLocked(true);
       try {
         const resp = await Llm.send(`[MULTIPLAYER TURN]\n${combined}`);
@@ -296,9 +534,7 @@
       } finally {
         const logHtml = document.getElementById('narrativeLog')?.innerHTML || '';
         const state = JSON.parse(JSON.stringify(State));
-        // After host updates, broadcast authoritative state + log
         this._send('sync_broadcast', { sync: { state, logHtml } });
-
         Ui.setInputLocked(false);
         Ui.updateHeader();
         Ui.renderSidebar();
@@ -306,13 +542,65 @@
     },
   };
 
-  // Minimal UI helper
+  // UI helper with load save button
   const MultiplayerUI = {
     open() { document.getElementById('mpOverlay')?.classList.add('open'); },
     close() { document.getElementById('mpOverlay')?.classList.remove('open'); },
 
+    // Show save selection modal (reuse existing modal? or create simple inline)
+    showLoadSaveModal() {
+      if (!MP.isHost()) return;
+      const slots = SaveLoad.slots();
+      if (!slots.length) {
+        MP._setStatus('No saves found.', 'err');
+        return;
+      }
+
+      // Create a simple modal or use the existing one
+      const modal = document.getElementById('modalOverlay');
+      const modalTitle = document.getElementById('modalTitle');
+      const modalSlots = document.getElementById('modalSlots');
+      const modalInputArea = document.getElementById('saveInputArea');
+      const modalMsg = document.getElementById('modalMsg');
+      const modalSaveBtn = document.getElementById('modalSaveConfirm');
+      const modalClose = document.getElementById('modalClose');
+
+      if (!modal) return;
+
+      modalTitle.textContent = '// LOAD MULTIPLAYER SAVE //';
+      if (modalInputArea) modalInputArea.style.display = 'none';
+      if (modalMsg) modalMsg.textContent = '';
+
+      modalSlots.innerHTML = slots.map(s => `
+        <div class="save-slot">
+          <div class="save-slot-info">
+            <div class="save-slot-name">${s.name}</div>
+            <div class="save-slot-meta">${s.gameTime} &nbsp;|&nbsp; ${new Date(s.savedAt).toLocaleDateString()}</div>
+          </div>
+          <button class="slot-btn" data-action="load" data-name="${s.name}">LOAD</button>
+        </div>
+      `).join('');
+
+      modalSlots.querySelectorAll('.slot-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const name = btn.dataset.name;
+          const ok = MP.loadSave(name);
+          if (ok) {
+            modal.classList.remove('open');
+            MP._emitUiUpdate();
+          } else {
+            if (modalMsg) { modalMsg.textContent = 'LOAD FAILED'; modalMsg.className = 'modal-msg err'; }
+          }
+        });
+      });
+
+      modal.classList.add('open');
+      const closeHandler = () => modal.classList.remove('open');
+      modalClose?.removeEventListener('click', closeHandler);
+      modalClose?.addEventListener('click', closeHandler);
+    },
+
     render() {
-      // MP tab: players list
       const panel = document.getElementById('tab-mp');
       if (!panel) return;
 
@@ -335,9 +623,10 @@
         const prompt = p.promptText ? p.promptText : (p.promptDraft || '');
         const stats = p.snapshot ? `HP ${p.snapshot.hp}/${p.snapshot.maxHp} · CR ${p.snapshot.credits} · LV ${p.snapshot.level}` : '—';
         const ready = p.ready ? 'READY' : 'NOT READY';
+        const readyForGame = MP.playersReadyForGame[p.id] ? '✓' : '⚙';
         return `
           <div class="inv-item" style="cursor:default">
-            <div class="iname">${isYou ? '★ ' : ''}${p.name || 'Player'} <span class="iamt">${ready} · ${lock}</span></div>
+            <div class="iname">${isYou ? '★ ' : ''}${p.name || 'Player'} <span class="iamt">${ready} · ${lock} · ${readyForGame}</span></div>
             <div class="idesc">${stats}</div>
             <div class="idesc" style="margin-top:6px;opacity:.9">${prompt ? prompt : '[ no prompt ]'}</div>
           </div>
@@ -347,17 +636,22 @@
       const youObj = (MP.players || []).find(p => p.id === you);
       const youReady = !!youObj?.ready;
       const started = !!MP.lobby.started;
+      const gameActive = MP.gameActive;
+      const loadedSave = MP.loadedSaveName ? `Loaded: ${MP.loadedSaveName}` : 'No save loaded';
 
       panel.innerHTML = `
-        <div class="loc-badge">ROOM: <span>${room}</span> · ROLE: <span>${role}</span> · <span>${started ? 'STARTED' : 'LOBBY'}</span></div>
-        <div style="display:flex; gap:8px; margin-bottom:10px;">
-          <button class="mp-btn ${youReady ? '' : 'mp-primary'}" id="mpReadyBtn" style="flex:1">${youReady ? 'UNREADY' : 'READY UP'}</button>
+        <div class="loc-badge">ROOM: <span>${room}</span> · ROLE: <span>${role}</span> · ${started ? (gameActive ? 'GAME ACTIVE' : 'CHARACTER CREATION') : 'LOBBY'}</div>
+        ${MP.isHost() && !started ? `<div class="loc-badge" style="background:var(--green-lo);">${loadedSave}</div>` : ''}
+        <div style="display:flex; gap:8px; margin-bottom:10px; flex-wrap:wrap;">
+          <button class="mp-btn ${youReady ? '' : 'mp-primary'}" id="mpReadyBtn" style="flex:1" ${started ? 'disabled' : ''}>${youReady ? 'UNREADY' : 'READY UP'}</button>
+          ${MP.isHost() && !started ? `<button class="mp-btn" id="mpLoadSaveBtn" style="flex:1">📂 LOAD SAVE</button>` : ''}
           ${MP.isHost() ? `<button class="mp-btn mp-primary" id="mpStartBtn" style="flex:1" ${started ? 'disabled' : ''}>START</button>` : ''}
         </div>
         ${rows || '<div class="panel-empty">[ NO PLAYERS ]</div>'}
       `;
 
       panel.querySelector('#mpReadyBtn')?.addEventListener('click', () => MP.readyUp(!youReady));
+      panel.querySelector('#mpLoadSaveBtn')?.addEventListener('click', () => MultiplayerUI.showLoadSaveModal());
       panel.querySelector('#mpStartBtn')?.addEventListener('click', () => MP.startMatch());
     },
 
@@ -376,14 +670,17 @@
       box.innerHTML = `
         <div style="display:flex; gap:8px; margin-top:6px;">
           <button class="mp-btn ${youReady ? '' : 'mp-primary'}" id="mpOverlayReadyBtn" style="flex:1" ${started ? 'disabled' : ''}>${youReady ? 'UNREADY' : 'READY UP'}</button>
+          ${MP.isHost() && !started ? `<button class="mp-btn" id="mpOverlayLoadSaveBtn" style="flex:1">📂 LOAD SAVE</button>` : ''}
           ${MP.isHost() ? `<button class="mp-btn mp-primary" id="mpOverlayStartBtn" style="flex:1" ${(!allReady || started) ? 'disabled' : ''}>START</button>` : ''}
         </div>
         <div class="mp-status" style="margin-top:8px; min-height:auto">
-          ${started ? 'MATCH STARTED.' : (allReady ? 'ALL READY — HOST CAN START.' : 'WAITING FOR READY…')}
+          ${started ? 'GAME STARTING – ' + (MP.skipCharCreation ? 'LOADED SAVE' : 'CHARACTER CREATION') : (allReady ? 'ALL READY — HOST CAN START.' : 'WAITING FOR READY…')}
+          ${MP.loadedSaveName ? ` (Loaded: ${MP.loadedSaveName})` : ''}
         </div>
       `;
 
       box.querySelector('#mpOverlayReadyBtn')?.addEventListener('click', () => MP.readyUp(!youReady));
+      box.querySelector('#mpOverlayLoadSaveBtn')?.addEventListener('click', () => MultiplayerUI.showLoadSaveModal());
       box.querySelector('#mpOverlayStartBtn')?.addEventListener('click', () => MP.startMatch());
     }
   };
@@ -393,7 +690,6 @@
 
   document.addEventListener('DOMContentLoaded', () => {
     MP._applyAccessGates();
-    // main menu button
     document.getElementById('menuMultiplayerBtn')?.addEventListener('click', () => MultiplayerUI.open());
     document.getElementById('mpCloseBtn')?.addEventListener('click', () => MultiplayerUI.close());
 
@@ -440,4 +736,3 @@
     });
   });
 })();
-
