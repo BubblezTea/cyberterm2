@@ -19,7 +19,6 @@ body.theme-transitioning {
   user-select: none;
 }
 
-/* glitch overlay container */
 .theme-glitch-overlay {
   position: fixed;
   inset: 0;
@@ -27,7 +26,6 @@ body.theme-transitioning {
   pointer-events: none;
 }
 
-/* chromatic aberration layers */
 @keyframes caRed {
   0%   { opacity: 0; transform: translate(0, 0); }
   8%   { opacity: 0.55; transform: translate(-6px, 1px); mix-blend-mode: screen; }
@@ -48,76 +46,10 @@ body.theme-transitioning {
   inset: 0;
   opacity: 0;
 }
-.ca-red  {
-  background: rgba(255, 30, 30, 0.18);
-  animation: caRed  0.5s ease-out forwards;
-}
-.ca-blue {
-  background: rgba(30, 80, 255, 0.18);
-  animation: caBlue 0.5s ease-out forwards;
-}
+.ca-red  { background: rgba(255, 30, 30, 0.18); animation: caRed  0.5s ease-out forwards; }
+.ca-blue { background: rgba(30, 80, 255, 0.18);  animation: caBlue 0.5s ease-out forwards; }
 
-/* ─── FANTASY BODY TEXTURE ─────────────────────────────────── */
-/* subtle warm vignette — the forest closing in around the HUD */
-html[data-theme="fantasy"] body::after {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background:
-    radial-gradient(ellipse at 50% 50%, transparent 55%, rgba(12, 6, 0, 0.55) 100%),
-    radial-gradient(ellipse at 20% 80%, rgba(30, 18, 2, 0.28) 0%, transparent 60%),
-    radial-gradient(ellipse at 80% 20%, rgba(20, 12, 2, 0.22) 0%, transparent 55%);
-  pointer-events: none;
-  z-index: 9998;
-}
-
-/* replace scanlines with a softer, warmer grain feel */
-html[data-theme="fantasy"] body::before {
-  background: repeating-linear-gradient(
-    0deg,
-    transparent,
-    transparent 3px,
-    rgba(0, 0, 0, 0.04) 3px,
-    rgba(0, 0, 0, 0.04) 6px
-  );
-}
-
-/* ─── FANTASY BOOT LOGO GLOW ──────────────────────────────── */
-html[data-theme="fantasy"] .boot-logo {
-  text-shadow: 0 0 20px var(--green), 0 0 60px #c8a84b40, 0 0 100px #c8a84b18;
-}
-
-/* ─── FANTASY BINARY RAIN (now runes) ────────────────────── */
-html[data-theme="fantasy"] .binary-digit {
-  font-family: 'Share Tech Mono', monospace;
-  color: #c8a84b;
-  opacity: 0.25;
-  text-shadow: 0 0 6px #c8a84b60;
-}
-
-/* ─── FANTASY MAIN MENU ───────────────────────────────────── */
-/* warm parchment-like gradient behind the menu */
-html[data-theme="fantasy"] #mainMenuScreen {
-  background: radial-gradient(ellipse at 30% 60%, #1a0f02 0%, #030201 70%);
-}
-
-/* ─── FANTASY NARRATIVE LOG ──────────────────────────────── */
-html[data-theme="fantasy"] .log-entry.narrator {
-  /* slightly warmer text tone, handled by --text-dim already */
-  border-left-color: var(--green-dim);
-}
-
-/* ─── FANTASY HUD — common neutral ground ─────────────────── */
-/* The HUD sits between both worlds — clean and functional.
-   Colors shift with the theme vars, layout stays identical. */
-html[data-theme="fantasy"] .hdr-title {
-  letter-spacing: 3px;
-}
-
-/* ─── FANTASY SETTINGS BOX ───────────────────────────────── */
-/* just inherits via CSS vars, nothing special needed */
-
-/* ─── THEME TOGGLE in settings ────────────────────────────── */
+/* ─── THEME TOGGLE ────────────────────────────── */
 .theme-toggle-wrap {
   display: flex;
   flex-direction: column;
@@ -154,6 +86,259 @@ html[data-theme="fantasy"] .hdr-title {
   letter-spacing: 1px;
   padding-top: 2px;
 }
-html[data-theme="fantasy"] .theme-toggle-label {
-  color: var(--text-lo);
+
+/* ─── GALAXY CANVAS — shared by menu + char creation ───── */
+#starfieldCanvas,
+.galaxy-cv {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ─── FANTASY THEME – VARS ──────────────────────────────── */
+html[data-theme="fantasy"] {
+  --bg:         #020804 !important;
+  --bg2:        #04100a !important;
+  --bg3:        #071408 !important;
+  --green:      #52b96e !important;
+  --green-dim:  #3d8c54 !important;
+  --green-lo:   #52b96e1a !important;
+  --green-md:   #52b96e32 !important;
+  --green-glow: #52b96e26 !important;
+  --border:     #1a3820 !important;
+  --border-hi:  #30603c !important;
+  --text:       #b4d494 !important;
+  --text-dim:   #78a05c !important;
+  --text-lo:    #3a5c28 !important;
+  --red:        #b85050 !important;
+  --yellow:     #c8a040 !important;
+}
+
+/* ─── BODY ──────────────────────────────────────────────── */
+html[data-theme="fantasy"] body {
+  background: radial-gradient(ellipse at 40% 30%, #040e06, #010401) !important;
+}
+
+/* forest vignette */
+html[data-theme="fantasy"] body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 50%, transparent 72%, rgba(1, 8, 2, 0.7) 100%);
+  pointer-events: none;
+  z-index: 9998;
+}
+
+html[data-theme="fantasy"] body::before {
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 3px,
+    rgba(0, 0, 0, 0.035) 3px,
+    rgba(0, 0, 0, 0.035) 6px
+  );
+}
+
+/* ─── MAIN MENU ─────────────────────────────────────────── */
+html[data-theme="fantasy"] #mainMenuScreen {
+  background: radial-gradient(ellipse at 35% 55%, #04100a 0%, #010401 75%) !important;
+}
+
+/* ─── BOOT ──────────────────────────────────────────────── */
+html[data-theme="fantasy"] .boot-logo {
+  text-shadow: 0 0 20px var(--green), 0 0 60px #52b96e35, 0 0 100px #52b96e14;
+}
+
+/* ─── RUNE RAIN ─────────────────────────────────────────── */
+html[data-theme="fantasy"] .binary-digit {
+  color: #52b96e;
+  opacity: 0.22;
+  text-shadow: 0 0 6px #52b96e55;
+}
+
+/* ─── PANELS ────────────────────────────────────────────── */
+html[data-theme="fantasy"] .gui-panel,
+html[data-theme="fantasy"] .skb-panel,
+html[data-theme="fantasy"] .seb-panel,
+html[data-theme="fantasy"] .modal-box,
+html[data-theme="fantasy"] .settings-box,
+html[data-theme="fantasy"] .mp-box {
+  background: rgba(3, 10, 4, 0.92) !important;
+  backdrop-filter: blur(8px) !important;
+  border: 1px solid var(--border-hi) !important;
+  border-radius: 14px !important;
+  box-shadow: 0 8px 36px rgba(0, 0, 0, 0.55), inset 0 0 28px rgba(52, 185, 110, 0.05) !important;
+}
+
+html[data-theme="fantasy"] .gui-header,
+html[data-theme="fantasy"] .skb-hdr,
+html[data-theme="fantasy"] .seb-header,
+html[data-theme="fantasy"] .modal-title,
+html[data-theme="fantasy"] .settings-title {
+  background: linear-gradient(135deg, #071410, #020804) !important;
+  border-bottom: 1px solid var(--border-hi) !important;
+  border-radius: 14px 14px 0 0 !important;
+  color: var(--text) !important;
+}
+
+/* ─── HEADER / HUD ──────────────────────────────────────── */
+html[data-theme="fantasy"] #gameHeader {
+  background: linear-gradient(180deg, #040e06, #020804) !important;
+  border-bottom: 1px solid #1e4226 !important;
+}
+
+html[data-theme="fantasy"] .hdr-title {
+  letter-spacing: 3px;
+  text-shadow: 0 0 12px #52b96e55;
+}
+
+html[data-theme="fantasy"] .hdr-stat {
+  background: #030c05 !important;
+  border: 1px solid var(--border-hi) !important;
+  border-radius: 20px !important;
+  padding: 2px 14px !important;
+}
+
+html[data-theme="fantasy"] .hdr-stat .val {
+  color: var(--green) !important;
+}
+
+/* ─── TABS ──────────────────────────────────────────────── */
+html[data-theme="fantasy"] .tab-bar {
+  background: #030c05 !important;
+  border-bottom: 1px solid var(--border) !important;
+}
+
+html[data-theme="fantasy"] .tab-btn {
+  color: var(--text-dim) !important;
+}
+
+html[data-theme="fantasy"] .tab-btn.active {
+  background: #071408 !important;
+  border-bottom: 2px solid var(--green) !important;
+  color: var(--green) !important;
+}
+
+/* ─── INPUTS ────────────────────────────────────────────── */
+html[data-theme="fantasy"] input,
+html[data-theme="fantasy"] textarea,
+html[data-theme="fantasy"] select,
+html[data-theme="fantasy"] .skb-input,
+html[data-theme="fantasy"] .seb-input,
+html[data-theme="fantasy"] .gui-t-input,
+html[data-theme="fantasy"] #playerInput {
+  background: #020804 !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text) !important;
+  border-radius: 6px !important;
+}
+
+html[data-theme="fantasy"] input:focus,
+html[data-theme="fantasy"] textarea:focus,
+html[data-theme="fantasy"] #playerInput:focus {
+  border-color: var(--green) !important;
+  box-shadow: 0 0 0 2px var(--green-lo) !important;
+}
+
+/* ─── BUTTONS ───────────────────────────────────────────── */
+html[data-theme="fantasy"] button:not(.skb-close-btn):not(.seb-close-btn):not(.gui-close-btn),
+html[data-theme="fantasy"] .hdr-action-btn,
+html[data-theme="fantasy"] .cc-next-btn,
+html[data-theme="fantasy"] .cc-choice-btn,
+html[data-theme="fantasy"] .class-btn,
+html[data-theme="fantasy"] .modal-save-btn,
+html[data-theme="fantasy"] .slot-btn,
+html[data-theme="fantasy"] #continueBtn {
+  background: #040e06 !important;
+  border: 1px solid var(--border-hi) !important;
+  color: var(--text-dim) !important;
+  border-radius: 6px !important;
+  transition: all 0.15s ease !important;
+}
+
+html[data-theme="fantasy"] button:not(.skb-close-btn):not(.seb-close-btn):not(.gui-close-btn):hover,
+html[data-theme="fantasy"] .hdr-action-btn:hover,
+html[data-theme="fantasy"] .cc-next-btn:hover,
+html[data-theme="fantasy"] .cc-choice-btn:hover,
+html[data-theme="fantasy"] .class-btn:hover,
+html[data-theme="fantasy"] .modal-save-btn:hover,
+html[data-theme="fantasy"] .slot-btn:hover,
+html[data-theme="fantasy"] #continueBtn:hover {
+  background: var(--green) !important;
+  border-color: var(--green) !important;
+  color: #020804 !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 16px #52b96e30 !important;
+}
+
+html[data-theme="fantasy"] button:active,
+html[data-theme="fantasy"] .hdr-action-btn:active,
+html[data-theme="fantasy"] #continueBtn:active {
+  transform: translateY(0) !important;
+}
+
+/* ─── PROVIDER / TOGGLE BTNS ────────────────────────────── */
+html[data-theme="fantasy"] .provider-btn.active,
+html[data-theme="fantasy"] .theme-toggle-btn.active {
+  background: var(--green) !important;
+  border-color: var(--green) !important;
+  color: #020804 !important;
+  box-shadow: 0 0 12px var(--green-glow) !important;
+}
+
+html[data-theme="fantasy"] .provider-btn:not(.active):hover,
+html[data-theme="fantasy"] .theme-toggle-btn:not(.active):hover {
+  background: #0a1e0c !important;
+  border-color: var(--border-hi) !important;
+}
+
+/* ─── SCROLLBARS ─────────────────────────────────────────── */
+html[data-theme="fantasy"] ::-webkit-scrollbar-thumb {
+  background: var(--green-dim) !important;
+  border-radius: 6px !important;
+}
+
+html[data-theme="fantasy"] ::-webkit-scrollbar-track {
+  background: #040e06 !important;
+}
+
+/* ─── NARRATIVE LOG ─────────────────────────────────────── */
+html[data-theme="fantasy"] #narrativeLog {
+  background: #020804 !important;
+}
+
+html[data-theme="fantasy"] .log-entry.narrator {
+  border-left-color: var(--green-dim);
+}
+
+html[data-theme="fantasy"] .log-entry.player {
+  border-left-color: var(--green) !important;
+}
+
+/* ─── COMBAT ────────────────────────────────────────────── */
+html[data-theme="fantasy"] #combatPanel {
+  background: rgba(2, 8, 4, 0.97) !important;
+}
+
+html[data-theme="fantasy"] #ceHeader {
+  background: #040e06 !important;
+}
+
+html[data-theme="fantasy"] .ce-enemy-card,
+html[data-theme="fantasy"] .ce-ally-card {
+  background: #071408 !important;
+  border-color: var(--border) !important;
+}
+
+html[data-theme="fantasy"] .cb-skill-btn {
+  background: #071408 !important;
+  border-color: var(--border) !important;
+}
+
+html[data-theme="fantasy"] .cb-skill-btn:hover:not(:disabled) {
+  background: var(--green) !important;
+  border-color: var(--green) !important;
+  color: #020804 !important;
 }

@@ -29,6 +29,7 @@ const State = {
   skills:         [],
   equipped:       { head:null, body:null, hands:null, back:null },
   keyFacts:       [],
+  statusEffectLibrary: [],
 
   classBaseHp:    80,
   classBaseEnergy:70,
@@ -147,6 +148,8 @@ const SaveLoad = {
       Ui.typeQueue = [];
       Ui.isTyping  = false;
       if (Ui.typingTimer) clearTimeout(Ui.typingTimer);
+
+      if (s.statusEffectLibrary) State.statusEffectLibrary = s.statusEffectLibrary;
 
       Ui.showScreen('gameScreen');
       Ui.updateHeader();

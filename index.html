@@ -23,17 +23,16 @@
 
 <!-- ========== MAIN MENU ========== -->
 <div id="mainMenuScreen" class="screen">
-  <div style="display:flex; flex-direction:column; align-items:flex-start; justify-content:center; height:100%; padding-left: 80px; gap:32px;">
-    <div class="boot-logo" style="font-size: 64px;">CYBERTERM</div>
-    <div class="boot-sub">NEURAL NARRATIVE ENGINE // v<span class="version-number"></span></div>
-    <div style="display:flex; gap:24px;">
-      <button id="menuSettingsBtn" class="hdr-action-btn" style="padding:12px 24px; font-size:16px;">⚙ SETTINGS</button>
-      <button id="menuStartBtn" class="hdr-action-btn" style="padding:12px 24px; font-size:16px; background:var(--green-lo);">▶ START</button>
-      <button id="menuMultiplayerBtn" class="hdr-action-btn" style="padding:12px 24px; font-size:16px;">⟟ MULTI</button>
+  <canvas id="starfieldCanvas"></canvas>
+
+  <div id="menuTopBar">
+    <div class="menu-logo">CYBERTERM <span class="menu-logo-version">v<span class="version-number"></span></span></div>
+    <div class="menu-top-right">
+      <button id="continueBtn" class="menu-top-btn">⟳ CONTINUE</button>
+      <button id="menuMultiplayerBtn" class="menu-top-btn">⟟ MULTI</button>
+      <button id="menuSettingsBtn" class="menu-top-btn">⚙ SETTINGS</button>
     </div>
-    <button id="continueBtn" class="hdr-action-btn" style="padding:8px 24px; font-size:14px; width:auto; min-width:160px;">⟳ CONTINUE</button>
   </div>
-  <div id="binaryRain" aria-hidden="true"></div>
 </div>
 
 <!-- ========== BOOT SCREEN ========== -->
@@ -500,11 +499,13 @@
 <script src="combat.js"></script>
 <script src="gui.js"></script>
 <script src="charCreate.js"></script>
+<script src="statusEffectBuilder.js"></script>
 <script src="skillBuilder.js"></script>
 <script src="main.js"></script>
 <script src="events.js"></script>
 <script src="prompts.js"></script>
 <script src="theme.js"></script>
+<script src="galaxy.js"></script>
 
 </body>
 </html>

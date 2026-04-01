@@ -1,3 +1,12 @@
+function cleanJsonResponse(raw) {
+  let cleaned = raw.trim();
+  // Remove markdown code fences: ```json, ```, or ``` with nothing
+  cleaned = cleaned.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '');
+  // Remove trailing commas before closing braces/brackets
+  cleaned = cleaned.replace(/,\s*([}\]])/g, '$1');
+  return cleaned;
+}
+
 async function callProvider(messages, maxTokens) {
   maxTokens = maxTokens || MAX_TOKENS;
   let delay = 2000;
@@ -150,13 +159,9 @@ systemPrompt(extraContext) {
   },
 
   parse(raw) {
-    // Log the raw AI response to the console for debugging
-    console.log('[LLM] Raw response:', raw);
+   console.log('[LLM] Raw response:', raw);
+    let cleaned = cleanJsonResponse(raw);
 
-    // Remove markdown fences
-    let cleaned = raw.replace(/^```json\s*/i, '').replace(/```$/g, '').trim();
-
-    // Try to parse the cleaned string
     try {
       return JSON.parse(cleaned);
     } catch (e) {
@@ -313,7 +318,6 @@ systemPrompt(extraContext) {
   },
 
   async getClasses() {
-    // Generate a 16-character random seed (uppercase and lowercase letters only)
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
     let seed = '';
     for (let i = 0; i < 16; i++) {
@@ -321,8 +325,20 @@ systemPrompt(extraContext) {
     }
 
     const prompt = Prompts.getClassGen(seed);
+    const isFantasy = localStorage.getItem('ct_theme') === 'fantasy';
 
-    const fallback = [
+    const fallbackFantasy = [
+      { name:'Knight', description:'A heavily armored warrior sworn to a fallen lord.', startHp:100, startCredits:80,
+        coreStats:{ str:16, agi:8, int:6, cha:10, tec:8, end:12 } },
+      { name:'Wizard', description:'A scholar of forbidden magic, wielding spells that can warp reality.', startHp:70, startCredits:120,
+        coreStats:{ str:4, agi:6, int:18, cha:12, tec:8, end:12 } },
+      { name:'Ranger', description:'A scout of the wilds, skilled with bow and survival.', startHp:85, startCredits:100,
+        coreStats:{ str:10, agi:14, int:8, cha:8, tec:8, end:12 } },
+      { name:'Cleric', description:'A priest of a forgotten deity, wielding divine magic to heal and smite.', startHp:90, startCredits:100,
+        coreStats:{ str:12, agi:6, int:10, cha:14, tec:6, end:12 } }
+    ];
+
+    const fallbackCyberpunk = [
       { name:'Chrome Surgeon', description:'A back-alley ripperdoc who learned to fight with scalpels and medical chrome.', startHp:85, startCredits:120,
         coreStats:{ str:12, agi:8, int:12, cha:6, tec:14, end:10 } },
       { name:'Data Ghoul', description:'A scavenger who hunts in abandoned server farms, consuming forgotten data.', startHp:75, startCredits:150,
@@ -333,6 +349,8 @@ systemPrompt(extraContext) {
         coreStats:{ str:14, agi:6, int:12, cha:12, tec:8, end:12 } }
     ];
 
+    const fallback = isFantasy ? fallbackFantasy : fallbackCyberpunk;
+
     return queueRequest(async () => {
       let raw = '';
       try { raw = await callProvider([{ role: 'user', content: prompt }], 800); }
@@ -340,7 +358,7 @@ systemPrompt(extraContext) {
 
       if (!raw) return fallback;
       try {
-        const clean = raw.replace(/^```json\s*/i,'').replace(/```$/,'').trim();
+        const clean = cleanJsonResponse(raw);
         let classes = JSON.parse(clean);
         classes = classes.map(c => ({
           name: c.name,

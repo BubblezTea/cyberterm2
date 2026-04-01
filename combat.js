@@ -95,13 +95,37 @@ const EffectEngine = {
     return true;
   },
 
-  _applyExtraTurn(target, sourceName) {
-    const currentIdx = activeCombat.turnOrder.findIndex(c => c.id === activeCombat.currentCombatant?.id);
-    if (currentIdx !== -1) {
-      activeCombat.turnOrder.splice(currentIdx + 1, 0, target);
-      CombatEngine.clog(`${target.name} gains an extra turn!`, 'cl-effect');
+  _applyExtraTurn(target, sourceName, count = 1, duration = 1) {
+    const existing = target.statusEffects.find(e => e.type === 'extra_turn');
+    if (existing) {
+      existing.extraCount += count;
+      existing.duration = Math.max(existing.duration, duration);
+    } else {
+      target.statusEffects.push({
+        name: 'Haste',
+        type: 'extra_turn',
+        extraCount: count,
+        duration: duration,
+        description: `Grants ${count} extra action(s) each turn for ${duration} turns.`
+      });
     }
+    CombatEngine.clog(`${target.name} gains ${count} extra action(s) per turn for ${duration} turn(s).`, 'cl-effect');
     return true;
+  },
+
+  _processExtraTurns(combatant) {
+    const extraEffect = combatant.statusEffects.find(e => e.type === 'extra_turn');
+    if (!extraEffect) return;
+    if (extraEffect.extraCount > 0) {
+      // Insert extra turns after the current one
+      const currentIdx = activeCombat.turnOrder.findIndex(c => c.id === combatant.id);
+      if (currentIdx !== -1) {
+        for (let i = 0; i < extraEffect.extraCount; i++) {
+          activeCombat.turnOrder.splice(currentIdx + 1 + i, 0, combatant);
+        }
+        CombatEngine.clog(`${combatant.name} gains ${extraEffect.extraCount} extra action(s) this turn.`, 'cl-effect');
+      }
+    }
   },
 
   _applyReflect(target, percent, duration, sourceName) {
@@ -213,7 +237,9 @@ One terse, visceral sentence. No numbers, no mechanics. Reply only: {"narration"
       reflectDuration: 0,
       immunities: [],
       skills: [],
-      isPlayer: true
+      isPlayer: true,
+      extraTurns: 0,
+      extraTurnsDuration: 0,
     };
     combatants.push(playerCombatant);
 
@@ -557,6 +583,7 @@ One terse, visceral sentence. No numbers, no mechanics. Reply only: {"narration"
     }
 
     let finalDmg = dmg;
+    let reflected = false; // <-- add this flag
     const damageType = skill.damageType || 'physical';
     if (target.immunities && target.immunities.some(imm => imm.type === 'all' || imm.type === damageType)) {
       CombatEngine.clog(`${target.name} is immune to ${damageType} damage!`, 'cl-status');
@@ -567,6 +594,7 @@ One terse, visceral sentence. No numbers, no mechanics. Reply only: {"narration"
         const reflectDmg = Math.floor(dmg * target.reflectPercent / 100);
         if (reflectDmg > 0) {
           EffectEngine.execute(c.playerObj, { type: 'damage', value: reflectDmg, target: 'self' }, `${target.name}'s reflection`);
+          reflected = true; // <-- set flag
         }
       }
     }

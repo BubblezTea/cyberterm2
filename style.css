@@ -119,6 +119,7 @@ body { animation: flicker 8s infinite; }
   overflow: hidden;
   align-items: center;
   justify-content: center;
+  background: transparent;
 }
 
 .char-create-container {
@@ -127,10 +128,11 @@ body { animation: flicker 8s infinite; }
   margin: 2rem auto;
   width: 90%;
   max-width: 720px;
-  background: var(--bg);
+  background: transparent;
   box-sizing: border-box;
   padding: 1rem;
 }
+
 .char-create-container::-webkit-scrollbar {
   width: 4px;
 }
@@ -2039,13 +2041,77 @@ body.sidebar-drawer-open #mobileSidebarToggle {
   #qteOverlay .qte-box { width: 90vw; }
 }
 
+/* ─── COSMIC MAIN MENU ─────────────────────────────── */
+#menuTopBar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 26px;
+  background: linear-gradient(to bottom, rgba(0,0,8,0.72) 0%, transparent 100%);
+  pointer-events: none;
+}
+
+.menu-logo {
+  font-family: 'VT323', monospace;
+  font-size: 24px;
+  color: rgba(155, 185, 255, 0.65);
+  letter-spacing: 5px;
+  text-shadow: 0 0 14px rgba(100, 140, 255, 0.3);
+  pointer-events: none;
+}
+
+.menu-logo-version {
+  font-size: 13px;
+  color: rgba(100, 130, 200, 0.4);
+  letter-spacing: 2px;
+  margin-left: 6px;
+}
+
+.menu-top-right {
+  display: flex;
+  gap: 8px;
+  pointer-events: auto;
+}
+
+.menu-top-btn {
+  background: rgba(0, 0, 20, 0.52);
+  border: 1px solid rgba(130, 165, 255, 0.16);
+  color: rgba(130, 165, 255, 0.6);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px;
+  padding: 5px 13px;
+  cursor: pointer;
+  letter-spacing: 1px;
+  transition: all 0.2s;
+  backdrop-filter: blur(8px);
+}
+
+.menu-top-btn:hover {
+  background: rgba(80, 110, 255, 0.1);
+  border-color: rgba(150, 180, 255, 0.35);
+  color: rgba(195, 215, 255, 0.85);
+  box-shadow: 0 0 10px rgba(100, 140, 255, 0.12);
+}
+
+@media (max-width: 768px) {
+  #menuTopBar { padding: 12px 14px; }
+  .menu-logo { font-size: 18px; letter-spacing: 3px; }
+  .menu-top-btn { font-size: 9px; padding: 4px 9px; }
+}
+
 #continueBtn {
   transition: all .12s;
 }
 #continueBtn:hover {
-  border-color: var(--green);
-  background: var(--green-lo);
-  box-shadow: 0 0 10px var(--green-glow);
+  border-color: rgba(150, 180, 255, 0.35);
+  background: rgba(80, 110, 255, 0.1);
+  color: rgba(195, 215, 255, 0.85);
+  box-shadow: none;
 }
 
 /* Death Screen with ASCII skull */

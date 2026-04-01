@@ -932,74 +932,57 @@
   display: none;
   position: fixed;
   inset: 0;
-  background: rgba(0, 4, 2, 0.92);
-  z-index: 4100;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(4px);
+  z-index: 10000;
   align-items: center;
   justify-content: center;
-  padding: 12px;
-  backdrop-filter: blur(2px);
 }
-#sebOverlay.open { display: flex; animation: sebFadeIn 0.25s ease; }
-@keyframes sebFadeIn {
-  from { opacity: 0; }
-  to   { opacity: 1; }
+#sebOverlay.open {
+  display: flex;
 }
 
 .seb-panel {
   background: var(--bg2);
   border: 1px solid var(--border-hi);
-  box-shadow: 0 0 60px var(--green-glow), inset 0 0 120px rgba(0,0,0,.6);
-  width: 100%;
-  max-width: 1100px;
+  border-radius: 16px;
+  width: 90%;
+  max-width: 900px;
   max-height: 90vh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  animation: sebSlideUp 0.28s cubic-bezier(.22,1,.36,1);
-}
-@keyframes sebSlideUp {
-  from { transform: translateY(18px); opacity: 0; }
-  to   { transform: translateY(0);    opacity: 1; }
+  box-shadow: 0 0 30px var(--green-glow);
 }
 
 .seb-header {
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  padding: 10px 18px;
-  border-bottom: 1px solid var(--border);
+  align-items: center;
+  padding: 12px 16px;
   background: var(--bg3);
-  flex-shrink: 0;
-}
-.seb-corner {
-  font-family: 'Share Tech Mono', monospace;
-  font-size: 8px;
-  color: var(--text-lo);
-  letter-spacing: 3px;
-  text-transform: uppercase;
+  border-bottom: 1px solid var(--border);
 }
 .seb-title {
   font-family: 'VT323', monospace;
-  font-size: 26px;
+  font-size: 24px;
   color: var(--green);
-  text-shadow: 0 0 12px var(--green);
-  letter-spacing: 3px;
+  text-shadow: 0 0 8px var(--green);
+  letter-spacing: 2px;
 }
-.seb-close-btn {
+#sebClose {
   background: transparent;
   border: 1px solid var(--border);
   color: var(--text-lo);
-  font-family: 'Share Tech Mono', monospace;
-  font-size: 11px;
-  padding: 5px 14px;
+  padding: 4px 12px;
   cursor: pointer;
-  letter-spacing: 1px;
-  transition: all .12s;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 12px;
+  transition: all 0.1s;
 }
-.seb-close-btn:hover {
+#sebClose:hover {
   border-color: var(--red);
   color: var(--red);
-  background: rgba(255,60,60,.08);
 }
 
 .seb-body {
@@ -1011,7 +994,7 @@
 .seb-left {
   flex: 2;
   overflow-y: auto;
-  padding: 14px 16px;
+  padding: 16px;
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
@@ -1020,215 +1003,240 @@
 .seb-right {
   flex: 1;
   overflow-y: auto;
-  padding: 14px 16px;
+  padding: 16px;
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
 
-/* Form elements */
+/* Form fields */
 .seb-field {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 4px;
 }
 .seb-field label {
   font-family: 'Share Tech Mono', monospace;
-  font-size: 9px;
+  font-size: 10px;
   color: var(--text-lo);
-  letter-spacing: 2px;
+  letter-spacing: 1px;
   text-transform: uppercase;
 }
-.seb-field input, .seb-field textarea, .seb-field select {
+.seb-field input,
+.seb-field textarea,
+.seb-field select {
   background: var(--bg);
   border: 1px solid var(--border);
   color: var(--text);
   font-family: 'Share Tech Mono', monospace;
   font-size: 12px;
-  padding: 7px 10px;
+  padding: 6px 10px;
   outline: none;
 }
-.seb-field input:focus, .seb-field textarea:focus, .seb-field select:focus {
+.seb-field input:focus,
+.seb-field textarea:focus,
+.seb-field select:focus {
   border-color: var(--green);
 }
-.seb-row {
-  display: flex;
-  gap: 12px;
-}
-.seb-row .seb-field {
-  flex: 1;
-}
-.seb-icon-row {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
+
+/* Icon grid */
 .seb-icon-grid {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 6px;
+  margin-bottom: 6px;
 }
 .seb-icon-btn {
   background: var(--bg);
   border: 1px solid var(--border);
-  font-size: 15px;
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
+  font-size: 18px;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  transition: all 0.1s;
 }
 .seb-icon-btn:hover {
   border-color: var(--green);
+  transform: scale(1.05);
 }
 
-/* Actions */
-.seb-actions-header {
+/* Mode buttons (SIMPLE/ADVANCED) */
+.seb-mode-row {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 8px;
-  font-family: 'Share Tech Mono', monospace;
-  font-size: 10px;
-  color: var(--text-lo);
-  letter-spacing: 2px;
-}
-.seb-action-buttons {
-  display: flex;
-  gap: 6px;
-}
-.seb-action-buttons button {
-  background: transparent;
+  gap: 0;
   border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+.seb-mode-row button {
+  flex: 1;
+  background: var(--bg);
+  border: none;
   color: var(--text-dim);
   font-family: 'Share Tech Mono', monospace;
-  font-size: 10px;
-  padding: 4px 8px;
+  font-size: 11px;
+  padding: 6px;
   cursor: pointer;
+  transition: all 0.1s;
 }
-.seb-action-buttons button:hover {
-  border-color: var(--green);
+.seb-mode-row button.active {
+  background: var(--green-lo);
   color: var(--green);
+  text-shadow: 0 0 4px var(--green-glow);
+}
+.seb-mode-row button:first-child {
+  border-right: 1px solid var(--border);
 }
 
-.seb-action-list {
+/* Action blocks */
+.seb-add-action {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--green-dim);
+  padding: 6px 12px;
+  cursor: pointer;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px;
+  margin-bottom: 8px;
+}
+.seb-add-action:hover {
+  border-color: var(--green);
+  background: var(--green-lo);
+}
+
+.seb-act-list {
   max-height: 300px;
   overflow-y: auto;
   border: 1px solid var(--border);
   background: var(--bg);
   padding: 8px;
 }
-.seb-action-card {
+.seb-act-empty {
+  color: var(--text-lo);
+  text-align: center;
+  padding: 20px;
+  font-size: 11px;
+}
+.seb-act-block {
   border: 1px solid var(--border);
   background: var(--bg3);
   margin-bottom: 8px;
+  padding: 8px;
 }
-.seb-action-header {
+.seb-act-header {
   display: flex;
-  align-items: center;
   gap: 8px;
-  padding: 6px 8px;
-  background: var(--bg2);
-  border-bottom: 1px solid var(--border);
+  align-items: center;
+  flex-wrap: wrap;
 }
-.seb-action-header select, .seb-action-header input {
+.seb-act-header select,
+.seb-act-header input {
   background: var(--bg);
   border: 1px solid var(--border);
   color: var(--text);
   font-family: 'Share Tech Mono', monospace;
   font-size: 10px;
-  padding: 4px;
+  padding: 4px 6px;
 }
-.seb-action-delete {
+.seb-act-del {
   background: transparent;
   border: 1px solid var(--border);
   color: var(--red);
   padding: 2px 8px;
   cursor: pointer;
 }
-.seb-action-drag {
-  cursor: grab;
-  color: var(--text-lo);
-}
-.seb-action-params {
-  padding: 8px;
+.seb-act-params {
+  margin-top: 8px;
   display: flex;
-  flex-wrap: wrap;
   gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
 }
-.seb-no-params {
+.seb-act-params label {
+  font-size: 9px;
   color: var(--text-lo);
-  font-size: 10px;
 }
-.seb-empty {
+.seb-act-param {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px;
+  padding: 4px 6px;
+  width: auto;
+}
+
+/* Preview */
+.seb-preview-header,
+.seb-library-header {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px;
+  color: var(--text-lo);
+  letter-spacing: 2px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 4px;
+  margin-bottom: 8px;
+}
+.seb-preview-ph {
   color: var(--text-lo);
   text-align: center;
   padding: 20px;
   font-size: 11px;
 }
-.seb-footer-actions {
-  display: flex;
-  gap: 8px;
-  margin-top: 8px;
-}
-.seb-footer-actions button {
-  flex: 1;
+.seb-prev-card {
+  border: 1px solid var(--border-hi);
   background: var(--bg3);
-  border: 1px solid var(--border);
-  color: var(--green-dim);
-  font-family: 'Share Tech Mono', monospace;
-  font-size: 11px;
-  padding: 8px;
-  cursor: pointer;
+  padding: 12px;
 }
-.seb-footer-actions button:hover {
-  border-color: var(--green);
-  background: var(--green-lo);
+.seb-prev-name {
+  font-family: 'VT323', monospace;
+  font-size: 20px;
+  color: var(--green);
+  text-shadow: 0 0 6px var(--green);
+  margin-left: 8px;
+}
+.seb-prev-meta {
+  font-size: 10px;
+  color: var(--text-lo);
+  margin: 6px 0;
+}
+.seb-prev-desc {
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 1.5;
 }
 
-/* Library & Preview */
-.seb-library-header, .seb-preview-header {
-  font-family: 'Share Tech Mono', monospace;
-  font-size: 9px;
-  color: var(--text-lo);
-  letter-spacing: 3px;
-  margin-bottom: 8px;
-  border-bottom: 1px solid var(--border);
-  padding-bottom: 4px;
-}
-.seb-library {
-  max-height: 200px;
-  overflow-y: auto;
+/* Library items */
+.seb-lib-item {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.seb-library-item {
+  align-items: center;
+  gap: 8px;
   border: 1px solid var(--border);
   background: var(--bg3);
   padding: 8px;
+  margin-bottom: 6px;
+}
+.seb-lib-icon {
+  font-size: 20px;
+}
+.seb-lib-info {
+  flex: 1;
 }
 .seb-lib-name {
   font-family: 'VT323', monospace;
-  font-size: 18px;
+  font-size: 16px;
   color: var(--green);
-}
-.seb-lib-desc {
-  font-size: 10px;
-  color: var(--text-dim);
-  margin: 4px 0;
 }
 .seb-lib-meta {
   font-size: 9px;
   color: var(--text-lo);
 }
-.seb-lib-actions {
+.seb-lib-btns {
   display: flex;
   gap: 6px;
-  margin-top: 6px;
 }
-.seb-lib-actions button {
+.seb-lib-btns button {
   background: transparent;
   border: 1px solid var(--border);
   color: var(--text-dim);
@@ -1236,104 +1244,54 @@
   padding: 2px 6px;
   cursor: pointer;
 }
-.seb-lib-actions button:hover {
+.seb-lib-btns button:hover {
   border-color: var(--green);
   color: var(--green);
 }
-.seb-preview {
-  border: 1px solid var(--border);
-  background: var(--bg);
-  padding: 12px;
-  min-height: 120px;
-}
-.seb-preview-card {
-  border: 1px solid var(--border-hi);
-  background: var(--bg3);
-  padding: 12px;
-}
-.seb-preview-name {
-  font-family: 'VT323', monospace;
-  font-size: 20px;
+
+/* Save button */
+.seb-save-btn {
+  background: var(--green-lo);
+  border: 1px solid var(--green);
   color: var(--green);
-  text-shadow: 0 0 8px var(--green);
-}
-.seb-preview-desc {
-  font-size: 11px;
-  color: var(--text-dim);
-  margin: 6px 0;
-}
-.seb-preview-meta {
-  font-size: 9px;
-  color: var(--text-lo);
-  margin-bottom: 8px;
-}
-.seb-preview-sequence {
+  padding: 8px;
   font-family: 'Share Tech Mono', monospace;
-  font-size: 10px;
-  color: var(--green-dim);
-  background: rgba(0,0,0,0.3);
-  padding: 6px;
-  word-break: break-word;
-}
-
-/* Scrollbars */
-.seb-left::-webkit-scrollbar, .seb-right::-webkit-scrollbar, .seb-action-list::-webkit-scrollbar, .seb-library::-webkit-scrollbar {
-  width: 3px;
-}
-.seb-left::-webkit-scrollbar-thumb, .seb-right::-webkit-scrollbar-thumb, .seb-action-list::-webkit-scrollbar-thumb, .seb-library::-webkit-scrollbar-thumb {
-  background: var(--border);
-}
-
-.seb-actions-header button {
-  background: #010101;
-  border: 1px solid #2a3a34;
-  color: #00ff9c;
-  padding: 4px 8px;
+  font-size: 12px;
   cursor: pointer;
-  border-radius: 4px;
-  font-family: inherit;
-  font-size: 0.75rem;
+  margin-top: 8px;
   transition: all 0.1s;
 }
-.seb-actions-header button:hover {
-  background: #00ff9c20;
-  border-color: #00ff9c;
+.seb-save-btn:hover {
+  background: var(--green-md);
+  box-shadow: 0 0 10px var(--green-glow);
 }
 
-.seb-action-params input,
-.seb-action-params select {
-  background: #010101;
-  border: 1px solid #2a3a34;
-  color: #00ff9c;
-  padding: 4px 8px;
-  font-family: inherit;
-  font-size: 0.75rem;
-  border-radius: 4px;
-  outline: none;
+/* Validation line */
+.seb-valid-line {
+  font-size: 10px;
+  text-align: center;
+  padding: 4px;
+  font-family: 'Share Tech Mono', monospace;
 }
-.seb-action-params input:focus,
-.seb-action-params select:focus {
-  border-color: #00ff9c;
+.seb-valid-line.err {
+  color: var(--red);
+}
+.seb-valid-line.ok {
+  color: var(--green);
 }
 
-.seb-content::-webkit-scrollbar,
-.seb-action-list::-webkit-scrollbar,
-.seb-library::-webkit-scrollbar {
-  width: 4px;
+.skb-eff-action-btn {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: all 0.1s;
 }
-.seb-content::-webkit-scrollbar-track,
-.seb-action-list::-webkit-scrollbar-track,
-.seb-library::-webkit-scrollbar-track {
-  background: #010101;
-}
-.seb-content::-webkit-scrollbar-thumb,
-.seb-action-list::-webkit-scrollbar-thumb,
-.seb-library::-webkit-scrollbar-thumb {
-  background: #2a3a34;
-  border-radius: 2px;
-}
-.seb-content::-webkit-scrollbar-thumb:hover,
-.seb-action-list::-webkit-scrollbar-thumb:hover,
-.seb-library::-webkit-scrollbar-thumb:hover {
-  background: #00ff9c;
+.skb-eff-action-btn:hover {
+  border-color: var(--green);
+  color: var(--green);
+  background: var(--green-lo);
 }

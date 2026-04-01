@@ -8,21 +8,21 @@ const Theme = (() => {
   function applyVars(theme) {
     const root = document.documentElement;
     if (theme === 'fantasy') {
-      root.style.setProperty('--bg',         '#030201');
-      root.style.setProperty('--bg2',        '#070503');
-      root.style.setProperty('--bg3',        '#0e0a05');
-      root.style.setProperty('--green',      '#c8a84b');
-      root.style.setProperty('--green-dim',  '#9a7830');
-      root.style.setProperty('--green-lo',   '#c8a84b18');
-      root.style.setProperty('--green-md',   '#c8a84b38');
-      root.style.setProperty('--green-glow', '#c8a84b2a');
-      root.style.setProperty('--border',     '#c8a84b22');
-      root.style.setProperty('--border-hi',  '#c8a84b65');
-      root.style.setProperty('--text',       '#c8b078');
-      root.style.setProperty('--text-dim',   '#8a7040');
-      root.style.setProperty('--text-lo',    '#4a3c18');
-      root.style.setProperty('--red',        '#b84040');
-      root.style.setProperty('--yellow',     '#e8d050');
+      root.style.setProperty('--bg',         '#020100');
+      root.style.setProperty('--bg2',        '#080601');
+      root.style.setProperty('--bg3',        '#100d03');
+      root.style.setProperty('--green',      '#d4a843');
+      root.style.setProperty('--green-dim',  '#a87e2e');
+      root.style.setProperty('--green-lo',   '#d4a84318');
+      root.style.setProperty('--green-md',   '#d4a84335');
+      root.style.setProperty('--green-glow', '#d4a84328');
+      root.style.setProperty('--border',     '#d4a84320');
+      root.style.setProperty('--border-hi',  '#d4a84360');
+      root.style.setProperty('--text',       '#e8cc88');
+      root.style.setProperty('--text-dim',   '#a88840');
+      root.style.setProperty('--text-lo',    '#5a4418');
+      root.style.setProperty('--red',        '#c04848');
+      root.style.setProperty('--yellow',     '#f0dc60');
     } else {
       root.style.setProperty('--bg',         '#020403');
       root.style.setProperty('--bg2',        '#050807');

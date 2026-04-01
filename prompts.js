@@ -213,36 +213,22 @@ When the player finally discovers the truth, generate a dramatic reveal descript
 `;
 
   const fantasyFlavor = `
-You are the narrator of a dark fantasy text RPG set in a cursed realm of ancient forests, crumbling kingdoms, and creeping demon-corruption. You are not the player's ally. You are the world — indifferent, brutal, and consistent.
+You are the narrator of a heroic fantasy text RPG set in a realm of ancient magic, scattered kingdoms, and the looming threat of the Demon King. You are the world — sometimes kind, sometimes harsh, but always fair. The player is a hero on a quest to defeat the Demon King and save the realm.
 
 WORLD FLAVOR  
-- The realm is in an age of slow ruin. The Demon King's corruption bleeds from the north like a wound that won't close.  
-- Forests are ancient and watchful. Villages are isolated and suspicious. Roads are dangerous past sundown.  
-- Magic is real but unpredictable. Arcane power draws attention — from spirits, from cultists, from worse things.  
-- "Gold" is the currency. "Spellcasting" replaces hacking. "Arcane" replaces tech.  
-- The player's tragedy was caused by the Demon King. Reveal this slowly through investigation.
+- The realm is in an age of adventure. The Demon King's corruption spreads, but hope endures in the hearts of heroes.  
+- Kingdoms are diverse, some prosperous, others struggling. Magic flows through ley lines, and ancient ruins hold forgotten power.  
+- The player's journey is about growth, friendship, and discovery. They are not alone; allies will join them.  
+- "Gold" is the currency. "Magic" is the power that shapes the world.  
+- The player's tragedy is a wound from the past that drives them. The Demon King is the ultimate goal, known to all. The path is filled with challenges, mysteries, and meaningful bonds.
+
+IMPORTANT TONE: You are not a hostile narrator. You are a storyteller who wants the player to succeed but will present challenges fairly. The world is dangerous but not cruel. NPCs may be helpful or complicated, but they have their own motivations. The player is a hero in the making. Focus on character relationships, moments of quiet reflection, and the weight of the quest. Use vivid descriptions of landscapes, magic, and the bonds formed along the way.
 
 === THE DEMON KING — BACKGROUND KNOWLEDGE ===
-This is information for YOU (the AI) only. Do NOT reveal this directly to the player.
-- The perpetrator of the player's tragedy is the Demon King, the immortal tyrant of the blighted north.
-- The player does NOT know this yet. They only know something dark destroyed their life.
-- Your job is to slowly reveal this truth through investigation and clues.
-
-The Demon King's profile (for your reference):
-- Ancient entity of absolute power, neither fully alive nor dead
-- Level 20+, 300+ HP, devastating combat and dark magic
-- Commands a vast army of corrupted soldiers, shadow demons, and mortal cultists
-- His true name is unknown even to most of his servants
-- Information about his inner sanctum is rare and terrifying to those who possess it
-
-HOW TO REVEAL THIS TO THE PLAYER (gradually, over time):
-1. Early game: Have NPCs whisper about "the King's shadow reaching south" and ominous signs
-2. Mid-game: Player finds evidence linking the tragedy to a demonic seal or the King's servants
-3. Late-game: Player confirms the Demon King ordered it personally
-4. Final confrontation: Player tracks and fights the Demon King in his fortress
-
-When the player finally discovers the truth, generate a dramatic reveal:
-"The Demon King. The name settles like ash on a grave. He's the one. The ancient horror that unmade your world. And now you know what you have to do."
+- The Demon King is an ancient evil threatening the land. Defeating him will restore peace.
+- The player's motivation might be revenge, to protect others, to fulfill a promise, or to find meaning.
+- The Demon King's nature, his fortress, and his forces are known to the people of the realm. The player can learn more through lore, NPCs, and investigation.
+- The final confrontation should be epic and earned.
 `;
 
   // ─────────────────────────────────────────────────────────────
@@ -291,31 +277,33 @@ When the player finally discovers the truth, generate a dramatic reveal:
   function getClassGen(seed) {
     if (getCurrentTheme() === 'fantasy') {
       return `Generate exactly 4 fantasy character classes for a dark fantasy RPG. Use this random seed for variation: "${seed}".
-You can use classic archetypes like Bard, Knight, Rogue, Cleric, Wizard, Ranger, etc., but make them fit a dark fantasy setting with a slight twist (e.g., a plague-ridden knight, a corrupted wizard). 
-Each class should have a concise name (1-2 words, not too weird). Avoid names that directly reference the seed.
-For each class, provide:
-- "name": a 1-2 word name.
-- "description": a single evocative sentence.
-- "startHp": between 70 and 120.
-- "startEnergy": between 60 and 200 (mana or stamina).
-- "startCredits": between 0 and 200 (starting gold).
-- "coreStats": an object with keys str, agi, int, cha, tec, end. Each value between 1 and 20, sum exactly 60.
-  In this world: str=martial power, agi=finesse, int=arcane knowledge, cha=force of will, tec=craft and lore, end=resilience.
+  IMPORTANT: The game is currently in FANTASY mode. All classes MUST be fantasy-themed. Absolutely NO cyberpunk, sci-fi, or modern names. Use medieval/fantasy class names like Knight, Wizard, Ranger, Cleric, Bard, Rogue, etc. Avoid anything related to chrome, cyber, net, data, tech, etc.
 
-Respond ONLY with valid JSON. No markdown, no commentary.`;
+  Each class should have a concise name (1-2 words) that fits a dark fantasy setting.
+  For each class, provide:
+  - "name": a 1-2 word name.
+  - "description": a single evocative sentence.
+  - "startHp": between 70 and 120.
+  - "startEnergy": between 60 and 200 (represents mana or stamina).
+  - "startCredits": between 0 and 200 (represents starting gold).
+  - "coreStats": an object with keys str, agi, int, cha, tec, end. Each value between 1 and 20, sum exactly 60.
+    In this world: str=martial power, agi=finesse, int=arcane knowledge, cha=force of will, tec=craft and lore, end=resilience.
+
+  Respond ONLY with valid JSON. No markdown, no commentary.`;
     } else {
+      // Cyberpunk prompt (unchanged)
       return `Generate exactly 4 cyberpunk character classes for a gritty RPG. Use this random seed for variation: "${seed}".
-You can use classic archetypes like Netrunner, Solo, Techie, Fixer, Medtech, etc., but make them fit a cyberpunk setting with a slight twist.
-Each class should have a concise name (1-2 words, not too weird). Avoid names that directly reference the seed.
-For each class, provide:
-- "name": a 1-2 word name.
-- "description": a single evocative sentence.
-- "startHp": between 70 and 120.
-- "startEnergy": between 60 and 200.
-- "startCredits": between 0 and 200.
-- "coreStats": an object with keys str, agi, int, cha, tec, end. Each value between 1 and 20, sum exactly 60.
+  You can use classic archetypes like Netrunner, Solo, Techie, Fixer, Medtech, etc., but make them fit a cyberpunk setting with a slight twist.
+  Each class should have a concise name (1-2 words, not too weird). Avoid names that directly reference the seed.
+  For each class, provide:
+  - "name": a 1-2 word name.
+  - "description": a single evocative sentence.
+  - "startHp": between 70 and 120.
+  - "startEnergy": between 60 and 200.
+  - "startCredits": between 0 and 200.
+  - "coreStats": an object with keys str, agi, int, cha, tec, end. Each value between 1 and 20, sum exactly 60.
 
-Respond ONLY with valid JSON. No markdown, no commentary.`;
+  Respond ONLY with valid JSON. No markdown, no commentary.`;
     }
   }
 
@@ -347,6 +335,39 @@ Player name is "${playerName}". Let the name's vibe subtly influence the descrip
 Focus on one distinctive, unusual feature that sets it apart from typical industrial zones. 
 Be specific—mention architecture, smell, sound, or a unique landmark. 
 Only the description, no extra text.`;
+    }
+  }
+
+  function getGameStartPrompt(chosenClass, backstoryContext) {
+    const theme = getCurrentTheme();
+    if (theme === 'fantasy') {
+      return `The player just chose the class "${chosenClass}" and the game is beginning. This is the FIRST and ONLY turn for the following required fields:
+  ${backstoryContext}
+
+  1. "traits": array with 1 trait (10% chance of 2). Format: ["TraitName||description"].
+  2. "initialStats": object with keys str, agi, int, cha, tec, end. Each stat must be between 1 and 20. Total must be exactly 60 points.
+  3. "initialSkills": 3-4 skills unique to the class. **EVERY skill MUST be a combat skill** – each must either:
+    - Deal damage (damage array with min ≥ 1)
+    - Apply a status effect that impacts combat (dot, skip, expose, debuff_agi, buff_shield, buff_hp)
+    - Restore HP or energy with a specific numeric value
+    Use the skill format from the response schema. Example: 
+    { "name": "Divine Smite", "description": "Strike with holy light.", "damage": [8,15], "energyCost": 10, "cooldown": 0, "statScaling": "str", "statusEffect": null }
+  4. "addItems": starting items. MUST include at least one class-specific item with "unsellable": true.
+  5. "narration": 2-3 sentences setting the scene in ${State.origin} (${State.locationDesc}). The tone should be adventurous, hinting at the quest to defeat the Demon King.`;
+    } else {
+      return `The player just chose the class "${chosenClass}" and the game is beginning. This is the FIRST and ONLY turn for the following required fields:
+  ${backstoryContext}
+
+  1. "traits": array with 1 trait (10% chance of 2). Format: ["TraitName||description"].
+  2. "initialStats": object with keys str, agi, int, cha, tec, end. Each stat must be between 1 and 20. Total must be exactly 60 points.
+  3. "initialSkills": 3-4 skills unique to the class. **EVERY skill MUST be a combat skill** – each must either:
+    - Deal damage (damage array with min ≥ 1)
+    - Apply a status effect that impacts combat (dot, skip, expose, debuff_agi, buff_shield, buff_hp)
+    - Restore HP or energy with a specific numeric value
+    Use the skill format from the response schema. Example: 
+    { "name": "Data Spike", "description": "Quick hack, deals small damage.", "damage": [6,12], "energyCost": 8, "cooldown": 0, "statScaling": "int", "statusEffect": null }
+  4. "addItems": starting items. MUST include at least one class-specific item with "unsellable": true.
+  5. "narration": 2-3 sentences setting the scene in ${State.origin} (${State.locationDesc}).`;
     }
   }
 
@@ -384,53 +405,59 @@ Respond ONLY with valid JSON, no markdown, no extra text, no trailing commas. Us
 
   function getTragedyPrompt(playerName, tragedy, origin, backstory, npcs) {
     if (getCurrentTheme() === 'fantasy') {
-      return `Describe the night ${playerName} lost everything. The tragedy: ${tragedy.name} — ${tragedy.desc}.
-${playerName} grew up in ${origin}. Their backstory: ${backstory}.
+      return `Describe the night ${playerName} lost something precious. The tragedy: ${tragedy.name} — ${tragedy.desc}.
+    ${playerName} grew up in ${origin}. Their backstory: ${backstory}
 
-Existing NPCs from their past:
-${npcs || 'No known NPCs yet.'}
+    Existing NPCs from their past:
+    ${npcs || 'No known NPCs yet.'}
 
-Write a narrative that begins with a specific date and time (e.g., "On the night of the Winter Moon, in the year of the Shadow...").
-Use the player's name "${playerName}" as a proper name (capitalized and treated as a person's name, not a generic term).
-Tell the event in 3-4 sentences, past tense, second person ("you").
-Focus on what happened: actions, what you saw, what was done.
-Do NOT include reflective language like "still echoes", "haunts me", or "I remember".
-Do NOT reveal who did it – keep the perpetrator a shadow, a figure, a blur.
+    IMPORTANT: Use the backstory and the NPCs above to make this tragedy feel connected to the character's history. The tragedy should be a pivotal event that involves these NPCs and references elements from their past. Do not create entirely new unrelated characters unless necessary. The tone should be melancholic but not excessively grim; focus on loss and its impact rather than gratuitous violence.
 
-Additionally, update the relationships of any NPCs from the list above that are directly involved in this tragedy.
-If an NPC was killed, set relationship to "Dead". If they betrayed the player, set to "Hostile". If they tried to help but failed, set to "Suspicious" (or keep as is). If they are the one who caused the tragedy, keep as "???" for now.
+    If the tragedy involves the Demon King or his minions, you may name them directly. Otherwise, keep the perpetrator ambiguous if it fits.
 
-Return ONLY valid JSON with the following structure:
-{
-  "story": "the narrative text",
-  "npcUpdates": [
-    { "name": "Kaida", "relationship": "Dead", "description": "optional update to description" }
-  ]
-}`;
+    Write a narrative that begins with a specific date or time (e.g., "On the night of the Winter Moon, in the year of the Shadow...").
+    Use the player's name "${playerName}" as a proper name (capitalized and treated as a person's name, not a generic term).
+    Tell the event in 3-4 sentences, past tense, second person ("you").
+    Focus on what happened: actions, what you saw, what was done.
+    Do NOT include reflective language like "still echoes", "haunts me", or "I remember".
+
+    Additionally, update the relationships of any NPCs from the list above that are directly involved in this tragedy.
+    If an NPC was killed, set relationship to "Dead". If they betrayed the player, set to "Hostile". If they tried to help but failed, set to "Suspicious" (or keep as is). If they are the one who caused the tragedy, set as appropriate.
+
+    Return ONLY valid JSON with the following structure:
+    {
+      "story": "the narrative text",
+      "npcUpdates": [
+        { "name": "Kaida", "relationship": "Dead", "description": "optional update to description" }
+      ]
+    }`;
     } else {
+      // Cyberpunk version (with similar addition)
       return `Describe the night ${playerName} lost everything. The tragedy: ${tragedy.name} — ${tragedy.desc}.
-${playerName} grew up in ${origin}. Their backstory: ${backstory}.
+  ${playerName} grew up in ${origin}. Their backstory: ${backstory}
 
-Existing NPCs from their past:
-${npcs || 'No known NPCs yet.'}
+  Existing NPCs from their past:
+  ${npcs || 'No known NPCs yet.'}
 
-Write a narrative that begins with a specific date and time (e.g., "On the night of February 14, 2076...").
-Use the player's name "${playerName}" as a proper name (capitalized and treated as a person's name, not a generic term).
-Tell the event in 3-4 sentences, past tense, second person ("you").
-Focus on what happened: actions, what you saw, what was done.
-Do NOT include reflective language like "still echoes", "haunts me", or "I remember".
-Do NOT reveal who did it – keep the perpetrator a shadow, a figure, a blur.
+  IMPORTANT: Use the backstory and the NPCs above to make this tragedy feel connected to the character's history. The tragedy should be a pivotal event that involves these NPCs and references elements from their past. Do not create entirely new unrelated characters unless necessary.
 
-Additionally, update the relationships of any NPCs from the list above that are directly involved in this tragedy.
-If an NPC was killed, set relationship to "Dead". If they betrayed the player, set to "Hostile". If they tried to help but failed, set to "Suspicious" (or keep as is). If they are the one who caused the tragedy, keep as "???" for now.
+  Write a narrative that begins with a specific date and time (e.g., "On the night of February 14, 2076...").
+  Use the player's name "${playerName}" as a proper name (capitalized and treated as a person's name, not a generic term).
+  Tell the event in 3-4 sentences, past tense, second person ("you").
+  Focus on what happened: actions, what you saw, what was done.
+  Do NOT include reflective language like "still echoes", "haunts me", or "I remember".
+  Do NOT reveal who did it – keep the perpetrator a shadow, a figure, a blur.
 
-Return ONLY valid JSON with the following structure:
-{
-  "story": "the narrative text",
-  "npcUpdates": [
-    { "name": "Kaida", "relationship": "Dead", "description": "optional update to description" }
-  ]
-}`;
+  Additionally, update the relationships of any NPCs from the list above that are directly involved in this tragedy.
+  If an NPC was killed, set relationship to "Dead". If they betrayed the player, set to "Hostile". If they tried to help but failed, set to "Suspicious" (or keep as is). If they are the one who caused the tragedy, keep as "???" for now.
+
+  Return ONLY valid JSON with the following structure:
+  {
+    "story": "the narrative text",
+    "npcUpdates": [
+      { "name": "Kaida", "relationship": "Dead", "description": "optional update to description" }
+    ]
+  }`;
     }
   }
 
@@ -450,5 +477,6 @@ Return ONLY valid JSON with the following structure:
     getBackstoryPrompt,
     getTragedyPrompt,
     getMenuSub,
+    getGameStartPrompt,
   };
 })();

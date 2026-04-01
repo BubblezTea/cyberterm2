@@ -457,51 +457,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // binary rain
-  let rainInterval = null;
-  function startBinaryRain() {
-    const container = document.getElementById('binaryRain');
-    if (!container) return;
-    if (rainInterval) clearInterval(rainInterval);
-    container.innerHTML = '';
-    const maxLeft = container.clientWidth - 20;
-
-    function makeDigit() {
-      const d = document.createElement('div');
-      d.className   = 'binary-digit';
-      d.textContent = Theme.getRainChar();
-      d.style.left  = `${Math.random() * maxLeft}px`;
-      const dur     = 3 + Math.random() * 9;
-      d.style.animationDuration = `${dur}s`;
-      d.style.animationDelay   = `-${Math.random() * dur}s`;
-      d.style.fontSize          = `${12 + Math.floor(Math.random() * 8)}px`;
-      d.style.opacity           = 0.4 + Math.random() * 0.5;
-      return d;
-    }
-
-    for (let i = 0; i < 300; i++) container.appendChild(makeDigit());
-
-    rainInterval = setInterval(() => {
-      if (!container.isConnected) { clearInterval(rainInterval); return; }
-      if (container.querySelectorAll('.binary-digit').length < 280) {
-        for (let i = 0; i < 5; i++) container.appendChild(makeDigit());
-      }
-    }, 5000);
-  }
-
-  const mainMenuScreen = document.getElementById('mainMenuScreen');
-  if (mainMenuScreen) {
-    const observer = new MutationObserver(() => {
-      if (mainMenuScreen.classList.contains('active')) startBinaryRain();
-      else {
-        if (rainInterval) clearInterval(rainInterval);
-        const rc = document.getElementById('binaryRain');
-        if (rc) rc.innerHTML = '';
-      }
-    });
-    observer.observe(mainMenuScreen, { attributes: true });
-  }
-
   // item popup
   const itemPopupClose = document.getElementById('itemPopupClose');
   if (itemPopupClose) {
@@ -514,9 +469,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const backToMenuBtn = document.getElementById('backToMenuBtn');
   if (backToMenuBtn) backToMenuBtn.addEventListener('click', () => Ui.showScreen('mainMenuScreen'));
-
-  const menuStartBtn = document.getElementById('menuStartBtn');
-  if (menuStartBtn) menuStartBtn.addEventListener('click', startGameFromMenu);
 
   // player input
   const sendBtn     = document.getElementById('sendBtn');

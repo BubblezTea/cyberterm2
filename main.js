@@ -64,18 +64,35 @@ async function startGame(chosenClass) {
     State.npcs = ccBackstoryNpcs.map(n => ({ ...n }));
   }
 
-  State.npcs.push({
-    name: 'V',
-    relationship: 'Neutral',
-    description: "Your old buddy, but you're not close anymore. V runs a small fixer network from a cramped data den in the Glitch Sector. They specialize in information brokerage, not just package delivery."
-  });
+  if (Theme.current === 'fantasy') {
+    State.npcs.push({
+      name: 'Elara',
+      relationship: 'Friendly',
+      description: "A wandering mage who once saved you from a beast. She has a kind heart and a sharp mind, always seeking ancient lore."
+    });
+  } else {
+    State.npcs.push({
+      name: 'V',
+      relationship: 'Neutral',
+      description: "Your old buddy, but you're not close anymore. V runs a small fixer network from a cramped data den in the Glitch Sector. They specialize in information brokerage, not just package delivery."
+    });
+  }
 
-  State.quests.push({
-    title:       "Find who ruined your life.",
-    description: "Find whoever ruined your life, pursuit them and kill them.",
-    status:      "Active",
-    reward:      "Satisfaction"
-  });
+  if (Theme.current === 'fantasy') {
+    State.quests.push({
+      title: "Defeat the Demon King",
+      description: "Find the Demon King and end his reign of terror. The journey will be long, but you will not face it alone.",
+      status: "active",
+      reward: "Peace for the realm"
+    });
+  } else {
+    State.quests.push({
+      title:       "Find who ruined your life.",
+      description: "Find whoever ruined your life, pursuit them and kill them.",
+      status:      "Active",
+      reward:      "Satisfaction"
+    });
+  }
 
   Ui.showScreen('gameScreen');
   Ui.updateHeader();
@@ -96,19 +113,7 @@ PLAYER IDENTITY:
 - Upbringing: ${State.upbringing.name} (d20 roll: ${State.upbringingRoll}/20) — ${State.upbringing.result}
 - Known contacts from past: ${ccBackstoryNpcs.map(n => `${n.name} (${n.relationship})`).join(', ') || 'none yet'}` : '';
 
-  const traitPrompt = `The player just chose the class "${chosenClass}" and the game is beginning. This is the FIRST and ONLY turn for the following required fields:
-${backstoryContext}
-
-1. "traits": array with 1 trait (10% chance of 2). Format: ["TraitName||description"].
-2. "initialStats": object with keys str, agi, int, cha, tec, end. Each stat must be between 1 and 20. Total must be exactly 60 points.
-3. "initialSkills": 3-4 skills unique to the class. **EVERY skill MUST be a combat skill** – each must either:
-   - Deal damage (damage array with min ≥ 1)
-   - Apply a status effect that impacts combat (dot, skip, expose, debuff_agi, buff_shield, buff_hp)
-   - Restore HP or energy with a specific numeric value
-   Use the skill format from the response schema. Example: 
-   { "name": "Data Spike", "description": "Quick hack, deals small damage.", "damage": [6,12], "energyCost": 8, "cooldown": 0, "statScaling": "int", "statusEffect": null }
-4. "addItems": starting items. MUST include at least one class-specific item with "unsellable": true.
-5. "narration": 2-3 sentences setting the scene in ${State.origin} (${State.locationDesc}).`;
+  const traitPrompt = Prompts.getGameStartPrompt(chosenClass, backstoryContext);
 
   const resp = await Llm.send(traitPrompt, 'FIRST_TURN=true', 1600);
   Engine.applyResponse(resp);
