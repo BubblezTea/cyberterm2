@@ -218,6 +218,10 @@ async function handlePlayerInput() {
       document.getElementById('narrativeLog').scrollTop = 999999;
     }
 
+    if (window.Multiplayer && window.Multiplayer.enabled) {
+      window.Multiplayer._broadcastSelfSnapshotThrottled();
+    }
+
     Ui.updateHeader();
     Ui.renderSidebar();
 

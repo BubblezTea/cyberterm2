@@ -1,15 +1,17 @@
 function isValidSkill(sk) {
   if (!sk || typeof sk.name !== 'string' || !sk.name.trim()) return false;
   const hasDamage = Array.isArray(sk.damage) && sk.damage[0] >= 1;
-  const hasStatus = sk.statusEffect && sk.statusEffect.name && (
+  const hasAdvancedStatus = sk.statusEffect && Array.isArray(sk.statusEffect.effects) && sk.statusEffect.effects.length > 0;
+  const hasSimpleStatus = sk.statusEffect && sk.statusEffect.name && (
     sk.statusEffect.type === 'dot' ||
     sk.statusEffect.type === 'skip' ||
     sk.statusEffect.type === 'expose' ||
     sk.statusEffect.type === 'debuff' ||
     sk.statusEffect.type === 'buff_hp' ||
+    sk.statusEffect.type === 'buff_shield' || // added
     (sk.statusEffect.type === 'buff' && typeof sk.statusEffect.value === 'number' && sk.statusEffect.value > 0)
   );
-  return hasDamage || hasStatus;
+  return hasDamage || hasSimpleStatus || hasAdvancedStatus;
 }
 
 function genericName(name) {

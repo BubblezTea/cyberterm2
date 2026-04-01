@@ -22,6 +22,7 @@
     // Save/load flags
     skipCharCreation: false,
     loadedSaveName: null,
+    _lastSnapshotTime: 0,
 
     isHost() { return this.enabled && this.role === 'host'; },
     isClient() { return this.enabled && this.role === 'client'; },
@@ -63,6 +64,13 @@
       if (!this.ws || this.ws.readyState !== 1) return false;
       this.ws.send(JSON.stringify({ type, ...payload }));
       return true;
+    },
+
+    _broadcastSelfSnapshotThrottled() {
+      const now = Date.now();
+      if (now - this._lastSnapshotTime < 2000) return; // max 1 every 2 seconds
+      this._lastSnapshotTime = now;
+      this._broadcastSelfSnapshot();
     },
 
     _broadcastSelfSnapshot() {
@@ -283,6 +291,24 @@
           this._emitUiUpdate();
           break;
         }
+
+        case 'combat_start':{
+          CombatEngine.handleMultiplayerMessage(msg);
+          break;
+        }
+        case 'combat_sync': {
+          CombatEngine.handleMultiplayerMessage(msg);
+          break;
+        }
+          
+        case 'combat_action': {
+          CombatEngine.handleMultiplayerMessage(msg);
+          break;
+        }
+        case 'combat_end': {
+          CombatEngine.handleMultiplayerMessage(msg);
+          break;
+        }
       }
     },
 
@@ -313,6 +339,8 @@
     async _runCombinedStart() {
       if (!this.isHost()) return;
       if (this.combinedStartDone) return;
+      this._broadcastSelfSnapshot();
+      this._emitUiUpdate();
       this.combinedStartDone = true;
       this.gameActive = true;
 
@@ -446,6 +474,9 @@ Return JSON only:
           sync: { state, logHtml, skipCharCreation: true, loadedSaveName: name }
         });
         this._send('system', { text: `Loaded save: ${name}` });
+        if (window.Multiplayer && window.Multiplayer.enabled) {
+          window.Multiplayer._emitUiUpdate();
+        }
         return true;
       } else {
         this._send('system', { text: `Failed to load save: ${name}` });
