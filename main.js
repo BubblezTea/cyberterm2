@@ -133,6 +133,22 @@ PLAYER IDENTITY:
     if (!alreadyHas) State.inventory.push({ ...State.tragedy.startItem });
   }
 
+  if (State.tragedy && State.tragedy.startItem) {
+    const alreadyHas = State.inventory.find(i => i.name === State.tragedy.startItem.name);
+    if (!alreadyHas) State.inventory.push({ ...State.tragedy.startItem });
+  }
+
+  // multiplayer: broadcast initialized state and wait for everyone
+  if (window.Multiplayer && Multiplayer.enabled) {
+    Multiplayer._broadcastSelfSnapshot();
+    Ui.addInstant('[ WAITING FOR OTHER PLAYERS TO FINISH CHARACTER CREATION... ]', 'system');
+    Ui.updateHeader();
+    Ui.renderSidebar();
+    if (Multiplayer.isHost()) Multiplayer._markSelfReady();
+    else Multiplayer.readyForGame();
+    return;
+  }
+
   if (State.hp <= 0) checkDeath(resp.deathReason || 'Your actions led to your demise...');
   await new Promise(r => setTimeout(r, 100));
   if (resp.narration) Ui.enqueue(resp.narration, 'narrator');

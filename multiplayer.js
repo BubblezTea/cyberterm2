@@ -30,6 +30,7 @@
       try { window.MultiplayerUI?.render?.(); } catch (_) {}
       try { this._applyAccessGates(); } catch (_) {}
       try { window.MultiplayerUI?.renderOverlay?.(); } catch (_) {}
+      try { window.MultiplayerUI?.renderPartyTab?.(); } catch (_) {}
     },
 
     _applyAccessGates() {
@@ -315,62 +316,66 @@
       this.combinedStartDone = true;
       this.gameActive = true;
 
-      // If a save was loaded, skip generating a new start
       if (this.skipCharCreation && this.loadedSaveName) {
-        // The state is already applied, just broadcast that we're ready
         const logHtml = document.getElementById('narrativeLog')?.innerHTML || '';
         const state = JSON.parse(JSON.stringify(State));
         this._send('sync_broadcast', { sync: { state, logHtml } });
         this._send('game_started', {});
-        // Also notify everyone that we're using a loaded save
         this._send('system', { text: `Game started with loaded save: ${this.loadedSaveName}` });
         return;
       }
 
-      // Normal combined start (new game)
+      const isFantasy = localStorage.getItem('ct_theme') === 'fantasy';
+      const setting = isFantasy ? 'fantasy realm' : 'cyberpunk city';
+
       const playersData = this.players.map(p => {
         const snap = p.snapshot || {};
         return {
           name: p.name,
           class: snap.playerClass || '???',
-          backstory: snap.backstory || 'No backstory provided.',
-          traits: snap.traits || [],
+          backstory: snap.backstory || '',
           origin: snap.origin || 'Unknown',
+          traits: (snap.traits || []).map(t => t.name || t).join(', ') || 'none',
           stats: snap.stats || {},
-          inventory: snap.inventory || [],
         };
       });
 
-      const prompt = `
-MULTIPLAYER CAMPAIGN START
-Players and their characters:
-${playersData.map(p => `
-- ${p.name} (${p.class})
-  Backstory: ${p.backstory}
-  Traits: ${p.traits.map(t => t.name).join(', ') || 'None'}
-  Origin: ${p.origin}
-`).join('\n')}
+      const charLines = playersData.map(p =>
+        `NAME: ${p.name} (${p.class})\nORIGIN: ${p.origin}\nBACKSTORY: ${p.backstory}\nTRAITS: ${p.traits}`
+      ).join('\n\n---\n\n');
 
-Generate a starting scene that brings these characters together in a shared location.
-Create a short, atmospheric description (3-4 sentences) that introduces where they are and what's happening.
-Also, suggest an initial location (e.g., "The Rusty Nail", "Cinder Row") and optionally an opening quest hook.
+      const prompt = `MULTIPLAYER CAMPAIGN START — ${playersData.length} CHARACTERS CONVERGE
 
-Return JSON with:
+Setting: ${setting}
+
+Characters:
+${charLines}
+
+You are a master storyteller. Write an opening scene (5-8 sentences) for this campaign.
+Rules:
+- Begin in separate moments — each character in their own world, feeling a pull, a rumor, a restlessness they cannot name
+- Weave their individual voices and backgrounds into the prose without announcing who is who too bluntly
+- Let their paths converge naturally toward a single shared location by the end
+- The tone should feel like the first page of a novel — atmospheric, grounded, with a quiet sense of fate
+- Do NOT say "your party gathers" or any game-like phrasing
+
+Then return a shared opening location and a quest hook fitting all their backstories.
+
+Return JSON only:
 {
   "narration": "...",
-  "newLocation": "Location Name",
-  "quests": [{"title": "Opening Hook", "description": "...", "status": "active"}],
+  "newLocation": "...",
+  "quests": [{"title": "...", "description": "...", "status": "active"}],
   "hpDelta": 0,
   "creditsDelta": 0,
   "addItems": []
-}
-`;
+}`;
 
       Ui.setInputLocked(true);
       try {
         const resp = await Llm.send(prompt, 'MULTIPLAYER_START=true');
         Engine.applyResponse(resp);
-        if (resp.narration) Ui.enqueue(resp.narration, 'narrator');
+
         if (resp.quests) {
           resp.quests.forEach(q => {
             if (!State.quests.find(ex => ex.title === q.title)) State.quests.push(q);
@@ -381,10 +386,22 @@ Return JSON with:
         Ui.updateHeader();
         Ui.renderSidebar();
 
-        const logHtml = document.getElementById('narrativeLog')?.innerHTML || '';
-        const state = JSON.parse(JSON.stringify(State));
-        this._send('sync_broadcast', { sync: { state, logHtml } });
-        this._send('game_started', {});
+        if (resp.narration) Ui.enqueue(resp.narration, 'narrator');
+
+        // wait for typing before syncing so clients get the full log
+        const doSync = () => {
+          const logHtml = document.getElementById('narrativeLog')?.innerHTML || '';
+          const state = JSON.parse(JSON.stringify(State));
+          this._send('sync_broadcast', { sync: { state, logHtml } });
+          this._send('game_started', {});
+          Ui.setInputLocked(false);
+        };
+
+        if (window.waitForTyping) {
+          setTimeout(() => waitForTyping(doSync), 300);
+        } else {
+          setTimeout(doSync, 4000);
+        }
       } catch (err) {
         console.error('Combined start failed', err);
         Ui.addInstant('[ MP ] Combined start failed. Starting normally.', 'system');
@@ -392,7 +409,6 @@ Return JSON with:
         const state = JSON.parse(JSON.stringify(State));
         this._send('sync_broadcast', { sync: { state, logHtml } });
         this._send('game_started', {});
-      } finally {
         Ui.setInputLocked(false);
       }
     },
@@ -546,6 +562,79 @@ Return JSON with:
   const MultiplayerUI = {
     open() { document.getElementById('mpOverlay')?.classList.add('open'); },
     close() { document.getElementById('mpOverlay')?.classList.remove('open'); },
+
+    renderPartyTab() {
+      const panel = document.getElementById('tab-party');
+      if (!panel) return;
+
+      if (!MP.enabled) {
+        panel.innerHTML = '<div class="panel-empty">[ NOT IN MULTIPLAYER ]</div>';
+        return;
+      }
+
+      const you = MP.playerId;
+      const others = (MP.players || []).filter(p => p.id !== you);
+
+      if (!others.length) {
+        panel.innerHTML = '<div class="panel-empty">[ WAITING FOR OTHERS ]</div>';
+        return;
+      }
+
+      const relColor = { Friendly: 'var(--green)', Ally: 'var(--green)', Hostile: 'var(--red)', Suspicious: 'var(--yellow)', Neutral: 'var(--text-lo)', Dead: 'var(--text-lo)' };
+
+      panel.innerHTML = others.map(p => {
+        const snap = p.snapshot || {};
+        const stats = snap.stats || {};
+        const npcs = (snap.npcs || []).slice(0, 6);
+        const skills = (snap.skills || []).slice(0, 6);
+        const hp = snap.hp ?? '?';
+        const maxHp = snap.maxHp ?? '?';
+        const hpPct = maxHp > 0 ? Math.round((hp / maxHp) * 100) : 0;
+        const hpBarColor = hpPct > 60 ? 'var(--green)' : hpPct > 25 ? 'var(--yellow)' : 'var(--red)';
+        const statKeys = ['str', 'agi', 'int', 'cha', 'tec', 'end'];
+
+        return `
+          <div class="inv-item" style="cursor:default;margin-bottom:12px;padding:10px 12px;">
+            <div class="iname" style="font-size:13px;margin-bottom:6px;">
+              ${p.name}
+              <span class="iamt">${snap.playerClass || '???'} · LV ${snap.level || 1}</span>
+            </div>
+
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+              <span style="color:var(--text-lo);font-size:9px;width:12px;">HP</span>
+              <div style="flex:1;height:3px;background:var(--border);">
+                <div style="width:${hpPct}%;height:100%;background:${hpBarColor};transition:width .3s;"></div>
+              </div>
+              <span style="color:var(--text-dim);font-size:9px;">${hp}/${maxHp}</span>
+            </div>
+
+            ${Object.keys(stats).length ? `
+            <div style="display:flex;flex-wrap:wrap;gap:3px;margin-bottom:6px;">
+              ${statKeys.map(k => `<span style="font-size:9px;color:var(--text-lo);border:1px solid var(--border);padding:1px 5px;">${k.toUpperCase()} <span style="color:var(--text-dim);">${stats[k] ?? 0}</span></span>`).join('')}
+            </div>` : ''}
+
+            ${npcs.length ? `
+            <div style="margin-bottom:5px;">
+              <div style="font-size:9px;color:var(--text-lo);letter-spacing:1px;margin-bottom:3px;">CONTACTS</div>
+              ${npcs.map(n => `<div style="font-size:10px;color:var(--text-dim);padding:1px 0;">▸ ${n.name} <span style="color:${relColor[n.relationship] || 'var(--text-lo)'}">[${n.relationship}]</span></div>`).join('')}
+            </div>` : ''}
+
+            ${skills.length ? `
+            <div style="margin-bottom:5px;">
+              <div style="font-size:9px;color:var(--text-lo);letter-spacing:1px;margin-bottom:3px;">SKILLS</div>
+              <div style="display:flex;flex-wrap:wrap;gap:3px;">
+                ${skills.map(s => `<span style="font-size:9px;color:var(--text-dim);border:1px solid var(--border);padding:1px 6px;">${s.name}</span>`).join('')}
+              </div>
+            </div>` : ''}
+
+            <div style="font-size:9px;color:var(--text-lo);margin-top:4px;">
+              CR: <span style="color:var(--text-dim);">${snap.credits ?? '?'}</span>
+              &nbsp;·&nbsp; LOC: <span style="color:var(--text-dim);">${snap.location || '?'}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+    },
 
     // Show save selection modal (reuse existing modal? or create simple inline)
     showLoadSaveModal() {
